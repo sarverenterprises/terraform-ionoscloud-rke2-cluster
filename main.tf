@@ -185,6 +185,7 @@ resource "null_resource" "wait_for_cluster" {
     interpreter = ["/bin/bash", "-c"]
     environment = {
       ENDPOINT_IP = local.terraform_management_endpoint_ip
+      CP0_HOST    = "${var.cluster_name}-cp-1"
     }
     command = <<-EOT
       MAX_ATTEMPTS=60
@@ -194,19 +195,45 @@ resource "null_resource" "wait_for_cluster" {
 	      if [ -n "$${ALL_PROXY:-}" ]; then
 	        echo "Private endpoint checks are using ALL_PROXY=$${ALL_PROXY}." >&2
 	      fi
+	      resolve_tailscale_ip() {
+	        local host="$1"
+	        if ! command -v tailscale >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+	          return 1
+	        fi
+	        tailscale status --json 2>/dev/null \
+	          | jq -r --arg host "$host" '
+	              .Peer[]?
+	              | select((.HostName == $host) or ((.DNSName // "" | split(".")[0]) == $host))
+	              | .TailscaleIPs[]?
+	              | select(test("^100\\."))
+	            ' \
+	          | head -1
+	      }
+	      CHECK_ENDPOINTS=()
+	      if [ -n "$${SSH_SOCKS_PROXY:-}" ] || [ -n "$${ALL_PROXY:-}" ]; then
+	        TS_ENDPOINT="$(resolve_tailscale_ip "$CP0_HOST" || true)"
+	        if [ -n "$TS_ENDPOINT" ]; then
+	          echo "Discovered $CP0_HOST Tailscale endpoint $TS_ENDPOINT for CI bootstrap checks." >&2
+	          CHECK_ENDPOINTS+=("$TS_ENDPOINT")
+	        fi
+	      fi
+	      CHECK_ENDPOINTS+=("$ENDPOINT_IP")
 	      until [ "$attempt" -ge "$MAX_ATTEMPTS" ]; do
         attempt=$(( attempt + 1 ))
-        curl_output=$(curl -k -sS --connect-timeout 5 --max-time 8 -o /dev/null -w "HTTP %%{http_code} err=%%{errormsg}" "https://$ENDPOINT_IP:6443/healthz" 2>&1 || true)
-        status=$(printf '%s' "$curl_output" | sed -n 's/^HTTP \([0-9][0-9][0-9]\).*/\1/p')
-        if [ "$status" = "200" ] || [ "$status" = "401" ] || [ "$status" = "403" ]; then
-          echo "API server is healthy (attempt $attempt)." >&2
-          exit 0
-        fi
-        echo "Attempt $attempt/$MAX_ATTEMPTS: $curl_output — retrying in $${SLEEP_SEC}s ..." >&2
+        for candidate in "$${CHECK_ENDPOINTS[@]}"; do
+          curl_output=$(curl -k -sS --connect-timeout 5 --max-time 8 -o /dev/null -w "HTTP %%{http_code} err=%%{errormsg}" "https://$candidate:6443/healthz" 2>&1 || true)
+          status=$(printf '%s' "$curl_output" | sed -n 's/^HTTP \([0-9][0-9][0-9]\).*/\1/p')
+          if [ "$status" = "200" ] || [ "$status" = "401" ] || [ "$status" = "403" ]; then
+            echo "API server is healthy via $candidate (attempt $attempt)." >&2
+            exit 0
+          fi
+          echo "Attempt $attempt/$MAX_ATTEMPTS via $candidate: $curl_output" >&2
+        done
+        echo "Retrying in $${SLEEP_SEC}s ..." >&2
         sleep "$SLEEP_SEC"
 	      done
 	      echo "ERROR: API server at https://$ENDPOINT_IP:6443/healthz did not become healthy after $(( MAX_ATTEMPTS * SLEEP_SEC ))s." >&2
-	      echo "If CP-0 is healthy, verify Tailscale autoApprovers.routes allows the node tag to advertise the cluster subnet and that the CI runner accepts routes." >&2
+	      echo "If CP-0 is healthy, verify Tailscale direct-node connectivity and subnet route acceptance from the CI runner." >&2
 	      exit 1
 	    EOT
   }
@@ -242,10 +269,13 @@ resource "terraform_data" "join_cps" {
     # process substitution <(...) used for SSH key injection.
     interpreter = ["/bin/bash", "-c"]
     environment = {
-      SSHKEY = var.ssh_private_key
-      CP0_IP = local.terraform_management_endpoint_ip
-      CP1_IP = local.terraform_control_plane_ips[1]
-      CP2_IP = local.terraform_control_plane_ips[2]
+      SSHKEY   = var.ssh_private_key
+      CP0_IP   = local.terraform_management_endpoint_ip
+      CP1_IP   = local.terraform_control_plane_ips[1]
+      CP2_IP   = local.terraform_control_plane_ips[2]
+      CP0_HOST = "${var.cluster_name}-cp-1"
+      CP1_HOST = "${var.cluster_name}-cp-2"
+      CP2_HOST = "${var.cluster_name}-cp-3"
       # Path to the node-side join script (avoids nested heredoc conflicts in HCL).
       # The script is piped to the remote bash via stdin (bash -s -- LABEL < SCRIPT).
       JOIN_SCRIPT = "${path.module}/scripts/join-cp-node.sh"
@@ -262,13 +292,36 @@ resource "terraform_data" "join_cps" {
       chmod 600 "$ssh_key_file"
       trap 'rm -f "$ssh_key_file" "$ssh_config_file"' EXIT
 
+      resolve_tailscale_ip() {
+        local host="$1"
+        if ! command -v tailscale >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+          return 1
+        fi
+        tailscale status --json 2>/dev/null \
+          | jq -r --arg host "$host" '
+              .Peer[]?
+              | select((.HostName == $host) or ((.DNSName // "" | split(".")[0]) == $host))
+              | .TailscaleIPs[]?
+              | select(test("^100\\."))
+            ' \
+          | head -1
+      }
+
       if [ -n "$${SSH_SOCKS_PROXY:-}" ]; then
+        CP0_SSH_IP="$(resolve_tailscale_ip "$CP0_HOST" || true)"
+        CP1_SSH_IP="$(resolve_tailscale_ip "$CP1_HOST" || true)"
+        CP2_SSH_IP="$(resolve_tailscale_ip "$CP2_HOST" || true)"
+        CP0_SSH_IP="$${CP0_SSH_IP:-$CP0_IP}"
+        CP1_SSH_IP="$${CP1_SSH_IP:-$CP1_IP}"
+        CP2_SSH_IP="$${CP2_SSH_IP:-$CP2_IP}"
+        echo "Using CI SSH endpoints: CP-0=$CP0_SSH_IP CP-1=$CP1_SSH_IP CP-2=$CP2_SSH_IP" >&2
+
         # Tailscale userspace SOCKS can reach CP-0 directly, but subnet-routed
-        # SSH to follower private IPs can fail. Use CP-0 as the private LAN
-        # jump host while still reaching CP-0 through the local SOCKS proxy.
+        # SSH to private LAN IPs can fail. Prefer direct Tailscale node IPs
+        # when discovered; fall back to CP-0 as a private-LAN jump host.
         cat > "$ssh_config_file" <<EOF
 Host cp0
-  HostName $CP0_IP
+  HostName $CP0_SSH_IP
   User root
   IdentityFile $ssh_key_file
   BatchMode yes
@@ -279,7 +332,18 @@ Host cp0
   ConnectTimeout 10
   ProxyCommand nc -X 5 -x $${SSH_SOCKS_PROXY} %h %p
 
-Host cp-join
+Host cp-direct
+  User root
+  IdentityFile $ssh_key_file
+  BatchMode yes
+  IdentitiesOnly yes
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  LogLevel ERROR
+  ConnectTimeout 10
+  ProxyCommand nc -X 5 -x $${SSH_SOCKS_PROXY} %h %p
+
+Host cp-private
   User root
   IdentityFile $ssh_key_file
   BatchMode yes
@@ -291,8 +355,11 @@ Host cp-join
   ProxyJump cp0
 EOF
       else
+        CP0_SSH_IP="$CP0_IP"
+        CP1_SSH_IP="$CP1_IP"
+        CP2_SSH_IP="$CP2_IP"
         cat > "$ssh_config_file" <<EOF
-Host cp-join
+Host cp-direct
   User root
   IdentityFile $ssh_key_file
   BatchMode yes
@@ -308,13 +375,17 @@ EOF
         local TARGET_IP="$1"
         local LABEL="$2"
         local attempt
+        local HOST_ALIAS="cp-direct"
+        if [ -n "$${SSH_SOCKS_PROXY:-}" ] && [[ ! "$TARGET_IP" == 100.* ]]; then
+          HOST_ALIAS="cp-private"
+        fi
 
         echo "[$LABEL] Connecting to $TARGET_IP ..." >&2
         for attempt in $(seq 1 30); do
           if ssh \
             -F "$ssh_config_file" \
             -o HostName="$TARGET_IP" \
-            cp-join \
+            "$HOST_ALIAS" \
             bash -s -- "$LABEL" < "$JOIN_SCRIPT"; then
             return 0
           fi
@@ -325,8 +396,8 @@ EOF
         return 1
       }
 
-      join_node "$CP1_IP" "CP-1"
-      join_node "$CP2_IP" "CP-2"
+      join_node "$CP1_SSH_IP" "CP-1"
+      join_node "$CP2_SSH_IP" "CP-2"
     EOT
   }
 }
@@ -344,8 +415,22 @@ resource "null_resource" "fetch_kubeconfig" {
 	      set -euo pipefail
 	      mkdir -p "${path.root}/.kube"
 	      ssh_proxy_args=()
+	      SSH_TARGET="${local.terraform_management_endpoint_ip}"
 	      if [ -n "$${SSH_SOCKS_PROXY:-}" ]; then
 	        ssh_proxy_args=(-o "ProxyCommand=nc -X 5 -x $${SSH_SOCKS_PROXY} %h %p")
+	        if command -v tailscale >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+	          TS_TARGET="$(tailscale status --json 2>/dev/null \
+	            | jq -r --arg host "${var.cluster_name}-cp-1" '
+	                .Peer[]?
+	                | select((.HostName == $host) or ((.DNSName // "" | split(".")[0]) == $host))
+	                | .TailscaleIPs[]?
+	                | select(test("^100\\."))
+	              ' \
+	            | head -1)"
+	          if [ -n "$TS_TARGET" ]; then
+	            SSH_TARGET="$TS_TARGET"
+	          fi
+	        fi
 	      fi
 	      ssh_key_file="$(mktemp)"
 	      printf '%s\n' "$SSHKEY" > "$ssh_key_file"
@@ -363,7 +448,7 @@ resource "null_resource" "fetch_kubeconfig" {
 	        -o ServerAliveInterval=15 \
 	        -o ServerAliveCountMax=4 \
 	        -i "$ssh_key_file" \
-	        root@${local.terraform_management_endpoint_ip} \
+	        root@$SSH_TARGET \
 	        "cat /etc/rancher/rke2/rke2.yaml" \
 	        | sed 's|https://127.0.0.1:6443|https://${local.control_plane_endpoint_ip}:6443|g' \
 	        > "${local.kubeconfig_path}"
