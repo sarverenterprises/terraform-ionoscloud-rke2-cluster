@@ -1,0 +1,465 @@
+# =============================================================================
+# Cluster Join Token
+# =============================================================================
+
+resource "random_password" "rke2_token" {
+  length  = 64
+  special = false
+
+  lifecycle {
+    # Rotating this token invalidates all node cloud-inits. Do not change after
+    # initial apply without re-provisioning ALL nodes.
+    prevent_destroy = false
+  }
+}
+
+# =============================================================================
+# Networking
+# =============================================================================
+
+module "networking" {
+  source = "./modules/networking"
+
+  cluster_name                      = var.cluster_name
+  location                          = local.control_plane_location
+  network_cidr                      = var.network_cidr
+  cluster_subnet_cidr               = var.cluster_subnet_cidr
+  existing_network_id               = var.existing_network_id
+  existing_datacenter_id            = var.existing_datacenter_id
+  existing_public_lan_id            = var.existing_public_lan_id
+  existing_private_lan_id           = var.existing_private_lan_id
+  enable_firewall                   = var.enable_firewall
+  trusted_ssh_cidrs                 = var.trusted_ssh_cidrs
+  kube_api_allowed_cidrs            = var.kube_api_allowed_cidrs
+  tailscale_wireguard_allowed_cidrs = var.tailscale_wireguard_allowed_cidrs
+  nodeport_allowed_cidrs            = var.nodeport_allowed_cidrs
+}
+
+# =============================================================================
+# Control Plane (always 3 nodes — HA embedded etcd)
+# =============================================================================
+
+module "control_plane" {
+  source = "./modules/node-pool"
+
+  pool_name                         = "${var.cluster_name}-cp"
+  cluster_name                      = var.cluster_name
+  role                              = "server"
+  node_count                        = 3
+  server_type                       = var.control_plane_server_type
+  location                          = local.control_plane_location
+  os_image                          = var.os_image
+  ssh_keys                          = var.ssh_keys
+  datacenter_id                     = module.networking.datacenter_id
+  public_lan_id                     = module.networking.public_lan_id
+  private_lan_id                    = module.networking.private_lan_id
+  network_id                        = module.networking.network_id
+  subnet_id                         = module.networking.subnet_id
+  placement_group_id                = var.enable_placement_group ? module.networking.placement_group_id : null
+  lb_id                             = null
+  attach_to_lb                      = false
+  lb_network_attachment_id          = null
+  assign_public_ip                  = true
+  enable_firewall                   = var.enable_firewall
+  trusted_ssh_cidrs                 = var.trusted_ssh_cidrs
+  kube_api_allowed_cidrs            = var.kube_api_allowed_cidrs
+  tailscale_wireguard_allowed_cidrs = var.tailscale_wireguard_allowed_cidrs
+  nodeport_allowed_cidrs            = var.nodeport_allowed_cidrs
+  private_ip_offset                 = 10
+
+  # Assign the first CP a known static private IP to avoid circular dependencies
+  # in worker cloud-inits that reference the first CP's join endpoint.
+  first_node_static_ip = local.first_cp_private_ip
+
+  # Cloud-init
+  rke2_version                 = var.rke2_version
+  rke2_token                   = random_password.rke2_token.result
+  control_plane_lb_ip          = local.control_plane_endpoint_ip
+  first_cp_ip                  = local.first_cp_private_ip
+  cluster_subnet_cidr          = var.cluster_subnet_cidr
+  private_network_gateway      = local.private_network_gateway
+  pod_cidr                     = var.pod_cidr
+  service_cidr                 = var.service_cidr
+  disabled_packaged_components = var.disabled_packaged_components
+
+  # Security
+  enable_tailscale_nodes = var.enable_tailscale_nodes
+  tailscale_auth_key     = var.tailscale_node_auth_key
+
+  # etcd Backup
+  enable_etcd_backup          = var.enable_etcd_backup
+  etcd_s3_endpoint            = var.etcd_s3_endpoint
+  etcd_s3_bucket              = var.etcd_s3_bucket
+  etcd_s3_access_key          = var.etcd_s3_access_key
+  etcd_s3_secret_key          = var.etcd_s3_secret_key
+  etcd_s3_region              = var.etcd_s3_region
+  etcd_s3_folder              = coalesce(var.etcd_s3_folder, var.cluster_name)
+  etcd_snapshot_schedule_cron = var.etcd_snapshot_schedule_cron
+  etcd_snapshot_retention     = var.etcd_snapshot_retention
+
+  # CP nodes never get dedicated Longhorn volumes
+  longhorn_volume_size = 0
+  scaling_mode         = "fixed"
+
+  labels = { "node-role" = "control-plane" }
+  taints = []
+}
+
+# =============================================================================
+# Worker Node Pools
+# =============================================================================
+
+module "worker_pools" {
+  # for_each gives stable resource addresses when pools are added/removed
+  for_each = { for pool in var.node_pools : pool.name => pool }
+
+  source = "./modules/node-pool"
+
+  pool_name      = "${var.cluster_name}-${each.key}"
+  cluster_name   = var.cluster_name
+  role           = "agent"
+  node_count     = each.value.scaling_mode == "autoscaled" ? each.value.min_nodes : each.value.node_count
+  server_type    = each.value.server_type
+  location       = coalesce(each.value.location, var.location)
+  os_image       = var.os_image
+  ssh_keys       = var.ssh_keys
+  datacenter_id  = module.networking.datacenter_id
+  public_lan_id  = module.networking.public_lan_id
+  private_lan_id = module.networking.private_lan_id
+  network_id     = module.networking.network_id
+  subnet_id      = module.networking.subnet_id
+
+  # Worker pools do not use a placement group or LB registration
+  placement_group_id   = null
+  lb_id                = null
+  first_node_static_ip = null
+
+  assign_public_ip                  = each.value.assign_public_ip
+  enable_firewall                   = var.enable_firewall
+  trusted_ssh_cidrs                 = var.trusted_ssh_cidrs
+  kube_api_allowed_cidrs            = []
+  tailscale_wireguard_allowed_cidrs = var.tailscale_wireguard_allowed_cidrs
+  nodeport_allowed_cidrs            = var.nodeport_allowed_cidrs
+  labels                            = each.value.labels
+  taints                            = each.value.taints
+  scaling_mode                      = each.value.scaling_mode
+  private_ip_offset = (
+    100 + (index(sort([for pool in var.node_pools : pool.name]), each.key) * 50)
+  )
+
+  # Cloud-init
+  rke2_version            = var.rke2_version
+  rke2_token              = random_password.rke2_token.result
+  control_plane_lb_ip     = local.control_plane_endpoint_ip
+  first_cp_ip             = local.first_cp_private_ip
+  cluster_subnet_cidr     = var.cluster_subnet_cidr
+  private_network_gateway = local.private_network_gateway
+
+  # Security
+  enable_tailscale_nodes = var.enable_tailscale_nodes
+  tailscale_auth_key     = var.tailscale_node_auth_key
+
+  longhorn_volume_size = each.value.longhorn_volume_size
+}
+
+# =============================================================================
+# Kubeconfig Retrieval
+#
+# IMPORTANT: This requires private network reachability to CP-0 and for
+# var.ssh_private_key to be set. The kubeconfig is written to
+# .kube/<cluster_name>.yaml in the caller's working directory.
+#
+# Two-phase apply: On initial provisioning, run:
+#   Phase 1: terraform apply -target=module.cluster.terraform_data.kubeconfig_store
+#   Phase 2: terraform apply
+# =============================================================================
+
+resource "null_resource" "wait_for_cluster" {
+  depends_on = [module.control_plane]
+
+  triggers = {
+    endpoint_ip = local.terraform_management_endpoint_ip
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    environment = {
+      ENDPOINT_IP = local.terraform_management_endpoint_ip
+    }
+    command = <<-EOT
+      MAX_ATTEMPTS=60
+      SLEEP_SEC=5
+	      attempt=0
+	      echo "Waiting for Kubernetes API at https://$ENDPOINT_IP:6443/healthz ..." >&2
+	      if [ -n "$${ALL_PROXY:-}" ]; then
+	        echo "Private endpoint checks are using ALL_PROXY=$${ALL_PROXY}." >&2
+	      fi
+	      until [ "$attempt" -ge "$MAX_ATTEMPTS" ]; do
+        attempt=$(( attempt + 1 ))
+        curl_output=$(curl -k -sS --connect-timeout 5 --max-time 8 -o /dev/null -w "HTTP %%{http_code} err=%%{errormsg}" "https://$ENDPOINT_IP:6443/healthz" 2>&1 || true)
+        status=$(printf '%s' "$curl_output" | sed -n 's/^HTTP \([0-9][0-9][0-9]\).*/\1/p')
+        if [ "$status" = "200" ] || [ "$status" = "401" ] || [ "$status" = "403" ]; then
+          echo "API server is healthy (attempt $attempt)." >&2
+          exit 0
+        fi
+        echo "Attempt $attempt/$MAX_ATTEMPTS: $curl_output — retrying in $${SLEEP_SEC}s ..." >&2
+        sleep "$SLEEP_SEC"
+	      done
+	      echo "ERROR: API server at https://$ENDPOINT_IP:6443/healthz did not become healthy after $(( MAX_ATTEMPTS * SLEEP_SEC ))s." >&2
+	      echo "If CP-0 is healthy, verify Tailscale autoApprovers.routes allows the node tag to advertise the cluster subnet and that the CI runner accepts routes." >&2
+	      exit 1
+	    EOT
+  }
+}
+
+# =============================================================================
+# CP Joiner — Terraform-gated sequential join (CP-1 then CP-2)
+#
+# Cloud-init only *enables* rke2-server on CP-1/CP-2 (no start). This
+# provisioner SSHes in after CP-0's API is confirmed healthy, wipes any
+# partial TLS/DB state from a prior failed join, and starts rke2-server.
+# Sequential join (CP-1 → CP-2) prevents simultaneous etcd learner races.
+#
+# Liveness guard: if rke2-server is already active on a node, the wipe is
+# skipped and the provisioner exits 0 — making re-runs (e.g. after a timed-out
+# apply or `terraform state rm`) safe on a live cluster member.
+# =============================================================================
+
+resource "terraform_data" "join_cps" {
+  depends_on = [null_resource.wait_for_cluster]
+
+  # Retrigger when either CP-1 or CP-2 server is replaced.
+  # Use server IDs (not IPs) so replacement is tied to immutable provider object identity.
+  triggers_replace = {
+    cp_ids = join(",", [
+      module.control_plane.server_ids[1],
+      module.control_plane.server_ids[2],
+    ])
+  }
+
+  provisioner "local-exec" {
+    # interpreter = ["/bin/bash", "-c"] is required — default /bin/sh (dash) does not support
+    # process substitution <(...) used for SSH key injection.
+    interpreter = ["/bin/bash", "-c"]
+    environment = {
+      SSHKEY = var.ssh_private_key
+      CP1_IP = local.terraform_control_plane_ips[1]
+      CP2_IP = local.terraform_control_plane_ips[2]
+      # Path to the node-side join script (avoids nested heredoc conflicts in HCL).
+      # The script is piped to the remote bash via stdin (bash -s -- LABEL < SCRIPT).
+      JOIN_SCRIPT = "${path.module}/scripts/join-cp-node.sh"
+    }
+    command = <<-EOT
+	      set -euo pipefail
+
+	      # CP-0 readiness is guaranteed by depends_on = [null_resource.wait_for_cluster],
+	      # which polls the private control-plane endpoint until healthy. Port 9345 is
+	      # restricted to the cluster subnet and reached by nodes over the private network.
+	      ssh_proxy_args=()
+	      if [ -n "$${SSH_SOCKS_PROXY:-}" ]; then
+	        ssh_proxy_args=(-o "ProxyCommand=nc -X 5 -x $${SSH_SOCKS_PROXY} %h %p")
+	      fi
+	      ssh_key_file="$(mktemp)"
+	      printf '%s\n' "$SSHKEY" > "$ssh_key_file"
+	      chmod 600 "$ssh_key_file"
+	      trap 'rm -f "$ssh_key_file"' EXIT
+
+	      join_node() {
+	        local TARGET_IP="$1"
+	        local LABEL="$2"
+	        local attempt
+
+	        echo "[$LABEL] Connecting to $TARGET_IP ..." >&2
+	        for attempt in $(seq 1 30); do
+	          if ssh \
+	            "$${ssh_proxy_args[@]}" \
+	            -o BatchMode=yes \
+	            -o IdentitiesOnly=yes \
+	            -o StrictHostKeyChecking=no \
+	            -o UserKnownHostsFile=/dev/null \
+	            -o LogLevel=ERROR \
+	            -o ConnectTimeout=10 \
+	            -i "$ssh_key_file" \
+	            "root@$TARGET_IP" \
+	            bash -s -- "$LABEL" < "$JOIN_SCRIPT"; then
+	            return 0
+	          fi
+	          echo "[$LABEL] SSH/join attempt $attempt failed; retrying in 10s ..." >&2
+	          sleep 10
+	        done
+	        echo "[$LABEL] ERROR: SSH/join failed after 30 attempts" >&2
+	        return 1
+	      }
+
+	      join_node "$CP1_IP" "CP-1"
+	      join_node "$CP2_IP" "CP-2"
+    EOT
+  }
+}
+
+resource "null_resource" "fetch_kubeconfig" {
+  depends_on = [null_resource.wait_for_cluster, terraform_data.join_cps]
+
+  triggers = {
+    cp_ids      = join(",", module.control_plane.server_ids)
+    endpoint_ip = local.control_plane_endpoint_ip
+  }
+
+  provisioner "local-exec" {
+    command     = <<-EOT
+	      set -euo pipefail
+	      mkdir -p "${path.root}/.kube"
+	      ssh_proxy_args=()
+	      if [ -n "$${SSH_SOCKS_PROXY:-}" ]; then
+	        ssh_proxy_args=(-o "ProxyCommand=nc -X 5 -x $${SSH_SOCKS_PROXY} %h %p")
+	      fi
+	      ssh_key_file="$(mktemp)"
+	      printf '%s\n' "$SSHKEY" > "$ssh_key_file"
+	      chmod 600 "$ssh_key_file"
+	      trap 'rm -f "$ssh_key_file"' EXIT
+
+	      ssh \
+	        "$${ssh_proxy_args[@]}" \
+	        -o BatchMode=yes \
+	        -o IdentitiesOnly=yes \
+	        -o StrictHostKeyChecking=no \
+	        -o UserKnownHostsFile=/dev/null \
+	        -o LogLevel=ERROR \
+	        -o ConnectTimeout=30 \
+	        -o ServerAliveInterval=15 \
+	        -o ServerAliveCountMax=4 \
+	        -i "$ssh_key_file" \
+	        root@${local.terraform_management_endpoint_ip} \
+	        "cat /etc/rancher/rke2/rke2.yaml" \
+	        | sed 's|https://127.0.0.1:6443|https://${local.control_plane_endpoint_ip}:6443|g' \
+	        > "${local.kubeconfig_path}"
+      chmod 600 "${local.kubeconfig_path}"
+      echo "Kubeconfig written to ${local.kubeconfig_path}"
+    EOT
+    interpreter = ["/bin/bash", "-c"]
+    environment = {
+      SSHKEY = var.ssh_private_key
+    }
+  }
+}
+
+# =============================================================================
+# Kubeconfig State Persistence
+#
+# Stores the kubeconfig in Terraform state so that CI runners with no
+# persistent filesystem between phases can access it in Phase 2.
+#
+# How it works:
+#   data.local_sensitive_file reads the kubeconfig from disk AFTER
+#   fetch_kubeconfig creates it. The depends_on defers the read to apply
+#   time — during plan, the data source shows content = (known after apply),
+#   avoiding the plan/apply inconsistency that file()/fileexists() cause
+#   when the file is created during the same apply.
+#
+#   Do NOT add a count = fileexists() guard — it conflicts with depends_on
+#   deferral: count is evaluated at plan time before deferral applies,
+#   producing count=0 on cold-state plans and reintroducing the two-apply
+#   problem.
+#
+#   Destroy note: if the kubeconfig file is manually deleted before running
+#   terraform destroy, use -refresh=false to skip the data source refresh.
+#   In normal destroy flows the file exists on disk throughout.
+# =============================================================================
+
+data "local_sensitive_file" "kubeconfig" {
+  filename   = local.kubeconfig_path
+  depends_on = [null_resource.fetch_kubeconfig]
+}
+
+resource "terraform_data" "kubeconfig_store" {
+  input = data.local_sensitive_file.kubeconfig.content
+}
+
+# =============================================================================
+# Add-ons
+# Called after the cluster is ready. Requires Helm + Kubernetes providers to be
+# configured by the root module (examples/) using the fetched kubeconfig.
+# =============================================================================
+
+module "addons" {
+  source = "./modules/addons"
+
+  cluster_name    = var.cluster_name
+  kubeconfig_path = local.kubeconfig_path
+  location        = local.control_plane_location
+
+  private_network_name = module.networking.network_name
+  private_network_id   = module.networking.network_id
+  pod_cidr             = var.pod_cidr
+
+  # Worker pool info reserved for future IONOS autoscaler support.
+  node_pools                  = var.node_pools
+  autoscaler_pool_cloud_inits = local.autoscaler_pool_cloud_inits
+  rke2_cluster_token          = random_password.rke2_token.result
+  rke2_version                = var.rke2_version
+  control_plane_lb_ip         = local.control_plane_endpoint_ip
+  cluster_subnet_cidr         = var.cluster_subnet_cidr
+  os_image                    = var.os_image
+
+  # Longhorn replica count computed from total worker nodes
+  longhorn_default_replicas = local.longhorn_default_replicas
+
+  # Tailscale for future autoscaler cloud-init.
+  enable_tailscale_nodes  = var.enable_tailscale_nodes
+  tailscale_node_auth_key = var.tailscale_node_auth_key
+
+  # Add-on flags
+  enable_external_dns       = var.enable_external_dns
+  enable_cert_manager       = var.enable_cert_manager
+  enable_ingress            = var.enable_ingress
+  enable_longhorn           = var.enable_longhorn
+  longhorn_rwx_mode         = var.longhorn_rwx_mode
+  enable_cluster_autoscaler = var.enable_cluster_autoscaler
+  autoscaler_rbac_level     = var.autoscaler_rbac_level
+  enable_flux               = var.enable_flux
+  flux_deploy_key_mode      = var.flux_deploy_key_mode
+  enable_monitoring         = var.enable_monitoring
+  grafana_hostname          = var.grafana_hostname
+  enable_tailscale_operator = var.enable_tailscale_operator
+
+  # Cloudflare
+  cloudflare_api_token = var.cloudflare_api_token
+  cloudflare_zone_id   = var.cloudflare_zone_id
+  cloudflare_zone      = var.cloudflare_zone
+
+  # GitHub / Flux
+  github_token     = var.github_token
+  flux_github_org  = var.flux_github_org
+  flux_github_repo = var.flux_github_repo
+  flux_branch      = var.flux_branch
+  flux_path        = var.flux_path
+
+  # Tailscale operator
+  tailscale_operator_auth_key = var.tailscale_operator_auth_key
+
+  # Argo CD
+  enable_argocd               = var.enable_argocd
+  argocd_hostname             = var.argocd_hostname
+  argocd_github_client_id     = var.argocd_github_client_id
+  argocd_github_client_secret = var.argocd_github_client_secret
+  argocd_dex_connectors       = var.argocd_dex_connectors
+
+  # System Upgrade Controller
+  enable_system_upgrade_controller        = var.enable_system_upgrade_controller
+  system_upgrade_controller_chart_version = var.system_upgrade_controller_chart_version
+
+  # Chart versions
+  cilium_chart_version                = var.cilium_chart_version
+  longhorn_chart_version              = var.longhorn_chart_version
+  cert_manager_chart_version          = var.cert_manager_chart_version
+  external_dns_chart_version          = var.external_dns_chart_version
+  traefik_chart_version               = var.traefik_chart_version
+  flux_version                        = var.flux_version
+  cluster_autoscaler_chart_version    = var.cluster_autoscaler_chart_version
+  cluster_autoscaler_image_tag        = var.cluster_autoscaler_image_tag
+  argocd_chart_version                = var.argocd_chart_version
+  argo_rollouts_chart_version         = var.argo_rollouts_chart_version
+  kube_prometheus_stack_chart_version = var.kube_prometheus_stack_chart_version
+
+  depends_on = [null_resource.fetch_kubeconfig]
+}

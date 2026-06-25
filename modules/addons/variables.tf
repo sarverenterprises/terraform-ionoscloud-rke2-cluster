@@ -1,0 +1,403 @@
+# =============================================================================
+# Cluster Identity
+# =============================================================================
+
+variable "cluster_name" {
+  description = "Cluster name — used to namespace Helm releases and Kubernetes resources."
+  type        = string
+}
+
+variable "location" {
+  description = "Default IONOS location for provider-neutral add-ons that need a location hint."
+  type        = string
+  default     = "us/ewr"
+}
+
+variable "kubeconfig_path" {
+  description = <<-EOT
+    Absolute path to the kubeconfig file on disk.
+    Required for resources that cannot validate CRD types at plan time
+    (e.g. CiliumClusterwideNetworkPolicy). When set, such resources are applied
+    via kubectl local-exec instead of kubernetes_manifest. When null, the
+    kubernetes_manifest provider is used — this requires the CRDs to already
+    exist in the cluster at plan time (safe for subsequent applies after
+    Cilium is installed).
+  EOT
+  type        = string
+  default     = null
+}
+
+# =============================================================================
+# Network
+# =============================================================================
+
+variable "private_network_name" {
+  description = "Name of the private IONOS LAN."
+  type        = string
+}
+
+variable "pod_cidr" {
+  description = "CIDR for Kubernetes pods. Used in Cilium IPAM and CCM clusterCIDR."
+  type        = string
+  default     = "10.42.0.0/16"
+}
+
+variable "private_network_id" {
+  description = "ID of the private IONOS LAN."
+  type        = string
+}
+
+variable "control_plane_lb_ip" {
+  description = "Private IP of the control-plane endpoint."
+  type        = string
+}
+
+variable "cluster_subnet_cidr" {
+  description = "Cluster subnet CIDR. Used in autoscaler cloud-init."
+  type        = string
+}
+
+# =============================================================================
+# RKE2 / OS
+# =============================================================================
+
+variable "rke2_version" {
+  description = "RKE2 version to install on autoscaled nodes."
+  type        = string
+}
+
+variable "rke2_cluster_token" {
+  description = "RKE2 cluster join token. Injected into autoscaler node cloud-inits."
+  type        = string
+  sensitive   = true
+}
+
+variable "os_image" {
+  description = "IONOS OS image for future autoscaled nodes."
+  type        = string
+}
+
+# =============================================================================
+# Worker Pools (reserved for future IONOS autoscaler support)
+# =============================================================================
+
+variable "autoscaler_pool_cloud_inits" {
+  description = "Pre-rendered cloud-init strings for autoscaled pools, keyed by full pool name (e.g. 'mycluster-workers'). Rendered in the root module to avoid cross-module template path violations when sourced from a Git remote."
+  type        = map(string)
+  default     = {}
+}
+
+variable "node_pools" {
+  description = "Worker node pool definitions."
+  type = list(object({
+    name        = string
+    server_type = string
+    node_count  = optional(number, 1)
+    location    = optional(string)
+
+    labels = optional(map(string), {})
+    taints = optional(list(object({
+      key    = string
+      value  = string
+      effect = string
+    })), [])
+
+    scaling_mode = optional(string, "fixed")
+    min_nodes    = optional(number, 1)
+    max_nodes    = optional(number, 10)
+
+    assign_public_ip     = optional(bool, false)
+    longhorn_volume_size = optional(number, 0)
+  }))
+  default = []
+}
+
+# =============================================================================
+# Longhorn
+# =============================================================================
+
+variable "longhorn_default_replicas" {
+  description = "Default Longhorn replica count. Computed from min(total_workers, 3)."
+  type        = number
+  default     = 3
+}
+
+variable "longhorn_rwx_mode" {
+  description = "Longhorn RWX backend: 'builtin' or 'external'."
+  type        = string
+  default     = "builtin"
+}
+
+# =============================================================================
+# Tailscale
+# =============================================================================
+
+variable "enable_tailscale_nodes" {
+  description = "Whether Tailscale is installed on nodes. Used to inject auth key into autoscaler cloud-inits."
+  type        = bool
+  default     = false
+}
+
+variable "tailscale_node_auth_key" {
+  description = "Tailscale auth key for node-level enrollment."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "tailscale_operator_auth_key" {
+  description = "Tailscale auth key for the Kubernetes operator."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+# =============================================================================
+# Add-on Feature Flags
+# =============================================================================
+
+variable "enable_external_dns" {
+  description = "Deploy External-DNS."
+  type        = bool
+  default     = false
+}
+
+variable "enable_cert_manager" {
+  description = "Deploy cert-manager."
+  type        = bool
+  default     = false
+}
+
+variable "enable_ingress" {
+  description = "Deploy Traefik ingress controller."
+  type        = bool
+  default     = false
+}
+
+variable "enable_longhorn" {
+  description = "Deploy Longhorn."
+  type        = bool
+  default     = false
+}
+
+variable "enable_cluster_autoscaler" {
+  description = "Deploy Cluster Autoscaler."
+  type        = bool
+  default     = false
+}
+
+variable "autoscaler_rbac_level" {
+  description = "RBAC scope for the autoscaler: 'upstream' or 'minimal'."
+  type        = string
+  default     = "upstream"
+}
+
+variable "enable_flux" {
+  description = "Bootstrap Flux CD."
+  type        = bool
+  default     = false
+}
+
+variable "flux_deploy_key_mode" {
+  description = "Flux deploy key mode: 'auto' or 'manual'."
+  type        = string
+  default     = "auto"
+}
+
+variable "enable_monitoring" {
+  description = "Deploy kube-prometheus-stack."
+  type        = bool
+  default     = false
+}
+
+variable "enable_tailscale_operator" {
+  description = "Deploy Tailscale Kubernetes operator."
+  type        = bool
+  default     = false
+}
+
+variable "enable_system_upgrade_controller" {
+  description = "Deploy Rancher System Upgrade Controller."
+  type        = bool
+  default     = false
+}
+
+# =============================================================================
+# Cloudflare
+# =============================================================================
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token. Required when enable_external_dns or enable_cert_manager."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "cloudflare_zone_id" {
+  description = "Cloudflare Zone ID."
+  type        = string
+  default     = null
+}
+
+variable "cloudflare_zone" {
+  description = "Cloudflare zone domain (e.g., 'example.com')."
+  type        = string
+  default     = null
+}
+
+# =============================================================================
+# GitHub / Flux
+# =============================================================================
+
+variable "github_token" {
+  description = "GitHub PAT. Required when enable_flux=true."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "flux_github_org" {
+  description = "GitHub org or user for Flux repository."
+  type        = string
+  default     = null
+}
+
+variable "flux_github_repo" {
+  description = "GitHub repository name for Flux."
+  type        = string
+  default     = null
+}
+
+variable "flux_branch" {
+  description = "Git branch for Flux to track."
+  type        = string
+  default     = "main"
+}
+
+variable "flux_path" {
+  description = "Path in the Flux repository for cluster manifests."
+  type        = string
+  default     = "clusters/main"
+}
+
+# =============================================================================
+# Monitoring
+# =============================================================================
+
+variable "grafana_hostname" {
+  description = "Hostname for Grafana ingress."
+  type        = string
+  default     = null
+}
+
+# =============================================================================
+# Argo CD
+# =============================================================================
+
+variable "enable_argocd" {
+  description = "Deploy Argo CD and Argo Rollouts."
+  type        = bool
+  default     = false
+}
+
+variable "argocd_hostname" {
+  description = "Hostname for Argo CD ingress. When null, no Ingress is created — access via kubectl port-forward."
+  type        = string
+  default     = null
+}
+
+variable "argocd_github_client_id" {
+  description = "GitHub OAuth App client ID for Dex SSO. Required together with argocd_github_client_secret to enable GitHub login."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "argocd_github_client_secret" {
+  description = "GitHub OAuth App client secret for Dex SSO."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "argocd_dex_connectors" {
+  description = "Raw Dex connectors YAML string. When set, overrides the auto-wired GitHub connector entirely. Use this for non-GitHub providers (Google, LDAP, OIDC, etc.)."
+  type        = string
+  default     = null
+}
+
+# =============================================================================
+# Chart Versions
+# =============================================================================
+
+variable "cilium_chart_version" {
+  description = "Cilium Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
+  type        = string
+  default     = "1.19.1"
+}
+
+variable "longhorn_chart_version" {
+  description = "Longhorn Helm chart version."
+  type        = string
+  default     = "~> 1.7"
+}
+
+variable "cert_manager_chart_version" {
+  description = "cert-manager Helm chart version."
+  type        = string
+  default     = "~> 1.16"
+}
+
+variable "external_dns_chart_version" {
+  description = "External-DNS Helm chart version."
+  type        = string
+  default     = "~> 1.14"
+}
+
+variable "traefik_chart_version" {
+  description = "Traefik Helm chart version."
+  type        = string
+  default     = "~> 32.0"
+}
+
+variable "flux_version" {
+  description = "Flux CD version."
+  type        = string
+  default     = "~> 2.4"
+}
+
+variable "cluster_autoscaler_chart_version" {
+  description = "Cluster Autoscaler Helm chart version."
+  type        = string
+  default     = "9.46.6"
+}
+
+variable "cluster_autoscaler_image_tag" {
+  description = "Cluster Autoscaler container image tag."
+  type        = string
+  default     = "v1.33.0"
+}
+
+variable "argocd_chart_version" {
+  description = "Argo CD Helm chart version."
+  type        = string
+  default     = "~> 9.4"
+}
+
+variable "argo_rollouts_chart_version" {
+  description = "Argo Rollouts Helm chart version."
+  type        = string
+  default     = "~> 2.40"
+}
+
+variable "kube_prometheus_stack_chart_version" {
+  description = "kube-prometheus-stack Helm chart version."
+  type        = string
+  default     = "~> 67.0"
+}
+
+variable "system_upgrade_controller_chart_version" {
+  description = "System Upgrade Controller Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
+  type        = string
+  default     = "0.14.2"
+}
