@@ -75,24 +75,24 @@ runcmd:
 
       if [ -n "$PRIVATE_IFACE" ]; then
         ip link set dev "$PRIVATE_IFACE" up || true
-        ip addr add "${node_ip}/${PRIVATE_PREFIX}" dev "$PRIVATE_IFACE" 2>/dev/null || true
+        ip addr add "${node_ip}/$${PRIVATE_PREFIX}" dev "$PRIVATE_IFACE" 2>/dev/null || true
         mkdir -p /etc/netplan
         cat >/etc/netplan/99-rke2-private.yaml <<EOF
     network:
       version: 2
       ethernets:
-        ${PRIVATE_IFACE}:
+        $${PRIVATE_IFACE}:
           dhcp4: false
           dhcp6: false
           addresses:
-            - ${node_ip}/${PRIVATE_PREFIX}
+            - ${node_ip}/$${PRIVATE_PREFIX}
     EOF
         chmod 0600 /etc/netplan/99-rke2-private.yaml
         netplan apply 2>/dev/null || true
       fi
 
       if ip -4 addr show | grep -q "${node_ip}/"; then
-        echo "Configured IONOS private IP ${node_ip} on ${PRIVATE_IFACE}"
+        echo "Configured IONOS private IP ${node_ip} on $${PRIVATE_IFACE}"
         break
       fi
       if [ "$i" -eq 300 ]; then
