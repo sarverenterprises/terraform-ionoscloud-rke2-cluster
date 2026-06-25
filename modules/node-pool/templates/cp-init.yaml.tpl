@@ -113,44 +113,6 @@ runcmd:
       sleep 2
     done
 
-%{ if enable_tailscale && cluster_init ~}
-  # Install Tailscale BEFORE RKE2 so its IP is available for tls-san.
-  # cp-0 advertises cluster_subnet_cidr as a subnet route so tailnet peers
-  # can reach the cluster's private network without public API exposure.
-  # It does not accept tailnet routes during bootstrap; broad accepted routes
-  # can conflict with local private networking.
-  - |
-    cat >/etc/sysctl.d/99-tailscale-subnet-router.conf <<'EOF'
-    net.ipv4.ip_forward = 1
-    net.ipv6.conf.all.forwarding = 1
-    EOF
-    sysctl -p /etc/sysctl.d/99-tailscale-subnet-router.conf
-    for attempt in 1 2 3; do
-      if curl -fsSL https://tailscale.com/install.sh -o /tmp/install-tailscale.sh \
-        && sh /tmp/install-tailscale.sh; then
-        break
-      fi
-      echo "Tailscale install attempt $attempt failed — retrying in $((attempt * 10))s..." >&2
-      sleep $((attempt * 10))
-    done
-    if ! command -v tailscale >/dev/null 2>&1; then
-      echo "FATAL: Tailscale install failed after 3 attempts" >&2
-      exit 1
-    fi
-    tailscale up \
-      --auth-key="${tailscale_auth_key}" \
-      --hostname="${hostname}" \
-      --advertise-routes="${cluster_subnet_cidr}" \
-      2>&1 | tee -a /var/log/tailscale-setup.log
-    if ! tailscale status >/dev/null 2>&1; then
-      echo "ERROR: Tailscale enrollment failed — node will not be reachable via tailnet" >&2
-    fi
-    TS_IP=$(tailscale ip -4 2>/dev/null || true)
-    if [ -n "$TS_IP" ]; then
-      sed -i '/^tls-san:$/a\  - "'"$TS_IP"'"' /etc/rancher/rke2/config.yaml
-    fi
-%{ endif ~}
-
 %{ if node_ip != null ~}
   # Control-plane nodes use static private IPs. IONOS attaches the private NIC
   # after Cube creation, and dhcp=false means Ubuntu must configure the address.
@@ -201,6 +163,44 @@ runcmd:
       sleep 1
     done
 
+%{ endif ~}
+
+%{ if enable_tailscale && cluster_init ~}
+  # Configure the IONOS private NIC before Tailscale advertises the subnet.
+  # Otherwise tailscale0 can claim node_ip and mask a missing private-LAN setup.
+  # cp-0 advertises cluster_subnet_cidr so tailnet peers can reach the private
+  # network without public API exposure. It does not accept tailnet routes during
+  # bootstrap; broad accepted routes can conflict with local private networking.
+  - |
+    cat >/etc/sysctl.d/99-tailscale-subnet-router.conf <<'EOF'
+    net.ipv4.ip_forward = 1
+    net.ipv6.conf.all.forwarding = 1
+    EOF
+    sysctl -p /etc/sysctl.d/99-tailscale-subnet-router.conf
+    for attempt in 1 2 3; do
+      if curl -fsSL https://tailscale.com/install.sh -o /tmp/install-tailscale.sh \
+        && sh /tmp/install-tailscale.sh; then
+        break
+      fi
+      echo "Tailscale install attempt $attempt failed — retrying in $((attempt * 10))s..." >&2
+      sleep $((attempt * 10))
+    done
+    if ! command -v tailscale >/dev/null 2>&1; then
+      echo "FATAL: Tailscale install failed after 3 attempts" >&2
+      exit 1
+    fi
+    tailscale up \
+      --auth-key="${tailscale_auth_key}" \
+      --hostname="${hostname}" \
+      --advertise-routes="${cluster_subnet_cidr}" \
+      2>&1 | tee -a /var/log/tailscale-setup.log
+    if ! tailscale status >/dev/null 2>&1; then
+      echo "ERROR: Tailscale enrollment failed — node will not be reachable via tailnet" >&2
+    fi
+    TS_IP=$(tailscale ip -4 2>/dev/null || true)
+    if [ -n "$TS_IP" ]; then
+      sed -i '/^tls-san:$/a\  - "'"$TS_IP"'"' /etc/rancher/rke2/config.yaml
+    fi
 %{ endif ~}
 
 %{ if !cluster_init && node_ip == null ~}
