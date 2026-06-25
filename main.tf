@@ -243,6 +243,7 @@ resource "terraform_data" "join_cps" {
     interpreter = ["/bin/bash", "-c"]
     environment = {
       SSHKEY = var.ssh_private_key
+      CP0_IP = local.terraform_management_endpoint_ip
       CP1_IP = local.terraform_control_plane_ips[1]
       CP2_IP = local.terraform_control_plane_ips[2]
       # Path to the node-side join script (avoids nested heredoc conflicts in HCL).
@@ -250,49 +251,82 @@ resource "terraform_data" "join_cps" {
       JOIN_SCRIPT = "${path.module}/scripts/join-cp-node.sh"
     }
     command = <<-EOT
-	      set -euo pipefail
+      set -euo pipefail
 
-	      # CP-0 readiness is guaranteed by depends_on = [null_resource.wait_for_cluster],
-	      # which polls the private control-plane endpoint until healthy. Port 9345 is
-	      # restricted to the cluster subnet and reached by nodes over the private network.
-	      ssh_proxy_args=()
-	      if [ -n "$${SSH_SOCKS_PROXY:-}" ]; then
-	        ssh_proxy_args=(-o "ProxyCommand=nc -X 5 -x $${SSH_SOCKS_PROXY} %h %p")
-	      fi
-	      ssh_key_file="$(mktemp)"
-	      printf '%s\n' "$SSHKEY" > "$ssh_key_file"
-	      chmod 600 "$ssh_key_file"
-	      trap 'rm -f "$ssh_key_file"' EXIT
+      # CP-0 readiness is guaranteed by depends_on = [null_resource.wait_for_cluster],
+      # which polls the private control-plane endpoint until healthy. Port 9345 is
+      # restricted to the cluster subnet and reached by nodes over the private network.
+      ssh_key_file="$(mktemp)"
+      ssh_config_file="$(mktemp)"
+      printf '%s\n' "$SSHKEY" > "$ssh_key_file"
+      chmod 600 "$ssh_key_file"
+      trap 'rm -f "$ssh_key_file" "$ssh_config_file"' EXIT
 
-	      join_node() {
-	        local TARGET_IP="$1"
-	        local LABEL="$2"
-	        local attempt
+      if [ -n "$${SSH_SOCKS_PROXY:-}" ]; then
+        # Tailscale userspace SOCKS can reach CP-0 directly, but subnet-routed
+        # SSH to follower private IPs can fail. Use CP-0 as the private LAN
+        # jump host while still reaching CP-0 through the local SOCKS proxy.
+        cat > "$ssh_config_file" <<EOF
+Host cp0
+  HostName $CP0_IP
+  User root
+  IdentityFile $ssh_key_file
+  BatchMode yes
+  IdentitiesOnly yes
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  LogLevel ERROR
+  ConnectTimeout 10
+  ProxyCommand nc -X 5 -x $${SSH_SOCKS_PROXY} %h %p
 
-	        echo "[$LABEL] Connecting to $TARGET_IP ..." >&2
-	        for attempt in $(seq 1 30); do
-	          if ssh \
-	            "$${ssh_proxy_args[@]}" \
-	            -o BatchMode=yes \
-	            -o IdentitiesOnly=yes \
-	            -o StrictHostKeyChecking=no \
-	            -o UserKnownHostsFile=/dev/null \
-	            -o LogLevel=ERROR \
-	            -o ConnectTimeout=10 \
-	            -i "$ssh_key_file" \
-	            "root@$TARGET_IP" \
-	            bash -s -- "$LABEL" < "$JOIN_SCRIPT"; then
-	            return 0
-	          fi
-	          echo "[$LABEL] SSH/join attempt $attempt failed; retrying in 10s ..." >&2
-	          sleep 10
-	        done
-	        echo "[$LABEL] ERROR: SSH/join failed after 30 attempts" >&2
-	        return 1
-	      }
+Host cp-join
+  User root
+  IdentityFile $ssh_key_file
+  BatchMode yes
+  IdentitiesOnly yes
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  LogLevel ERROR
+  ConnectTimeout 10
+  ProxyJump cp0
+EOF
+      else
+        cat > "$ssh_config_file" <<EOF
+Host cp-join
+  User root
+  IdentityFile $ssh_key_file
+  BatchMode yes
+  IdentitiesOnly yes
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  LogLevel ERROR
+  ConnectTimeout 10
+EOF
+      fi
 
-	      join_node "$CP1_IP" "CP-1"
-	      join_node "$CP2_IP" "CP-2"
+      join_node() {
+        local TARGET_IP="$1"
+        local LABEL="$2"
+        local attempt
+
+        echo "[$LABEL] Connecting to $TARGET_IP ..." >&2
+        for attempt in $(seq 1 30); do
+          if ssh \
+            -F "$ssh_config_file" \
+            -o HostName="$TARGET_IP" \
+            cp-join \
+            bash -s -- "$LABEL" < "$JOIN_SCRIPT"; then
+            return 0
+          fi
+          echo "[$LABEL] SSH/join attempt $attempt failed; retrying in 10s ..." >&2
+          sleep 10
+        done
+        echo "[$LABEL] ERROR: SSH/join failed after 30 attempts" >&2
+        return 1
+      }
+
+      join_node "$CP1_IP" "CP-1"
+      join_node "$CP2_IP" "CP-2"
     EOT
   }
 }
