@@ -166,17 +166,50 @@ runcmd:
 %{ endif ~}
 
 %{ if node_ip != null ~}
-  # Control-plane nodes use static private IPs. Refuse to start RKE2 until the address
-  # exists locally; otherwise etcd cannot bind its peer listener and 6443 never
-  # opens.
+  # Control-plane nodes use static private IPs. IONOS attaches the private NIC
+  # after Cube creation, and dhcp=false means Ubuntu must configure the address.
+  # Wait for the non-default NIC, assign the static address, and persist it.
   - |
-    for i in $(seq 1 120); do
+    PRIVATE_PREFIX=$(echo "${cluster_subnet_cidr}" | cut -d/ -f2)
+    PRIVATE_IFACE=""
+    for i in $(seq 1 300); do
       if ip -4 addr show | grep -q "${node_ip}/"; then
         echo "Static private IP ${node_ip} detected"
         break
       fi
-      if [ "$i" -eq 120 ]; then
-        echo "FATAL: static private IP ${node_ip} not present after 120s — aborting before RKE2 start" >&2
+
+      for iface in $(ls /sys/class/net | grep -v '^lo$'); do
+        if ip route show default dev "$iface" 2>/dev/null | grep -q '^default '; then
+          continue
+        fi
+        PRIVATE_IFACE="$iface"
+        break
+      done
+
+      if [ -n "$PRIVATE_IFACE" ]; then
+        ip link set dev "$PRIVATE_IFACE" up || true
+        ip addr add "${node_ip}/${PRIVATE_PREFIX}" dev "$PRIVATE_IFACE" 2>/dev/null || true
+        mkdir -p /etc/netplan
+        cat >/etc/netplan/99-rke2-private.yaml <<EOF
+    network:
+      version: 2
+      ethernets:
+        ${PRIVATE_IFACE}:
+          dhcp4: false
+          dhcp6: false
+          addresses:
+            - ${node_ip}/${PRIVATE_PREFIX}
+    EOF
+        chmod 0600 /etc/netplan/99-rke2-private.yaml
+        netplan apply 2>/dev/null || true
+      fi
+
+      if ip -4 addr show | grep -q "${node_ip}/"; then
+        echo "Configured static private IP ${node_ip} on ${PRIVATE_IFACE}"
+        break
+      fi
+      if [ "$i" -eq 300 ]; then
+        echo "FATAL: static private IP ${node_ip} not present after 300s — aborting before RKE2 start" >&2
         exit 1
       fi
       sleep 1

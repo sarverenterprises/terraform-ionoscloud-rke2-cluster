@@ -53,17 +53,50 @@ runcmd:
     fi
 %{ endif ~}
 
-  # IONOS assigns the private NIC IP through the server/NIC definition. Do not
-  # hardcode Linux interface names; wait for the expected address to appear.
+  # IONOS attaches the private NIC after Cube creation. With dhcp=false, Ubuntu
+  # must configure the static private address before RKE2 starts.
   - |
 %{ if node_ip != null ~}
-    for i in $(seq 1 120); do
+    PRIVATE_PREFIX=$(echo "${cluster_subnet_cidr}" | cut -d/ -f2)
+    PRIVATE_IFACE=""
+    for i in $(seq 1 300); do
       if ip -4 addr show | grep -q "${node_ip}/"; then
         echo "IONOS private IP ${node_ip} detected"
         break
       fi
-      if [ "$i" -eq 120 ]; then
-        echo "FATAL: IONOS private IP ${node_ip} not present after 120s" >&2
+
+      for iface in $(ls /sys/class/net | grep -v '^lo$'); do
+        if ip route show default dev "$iface" 2>/dev/null | grep -q '^default '; then
+          continue
+        fi
+        PRIVATE_IFACE="$iface"
+        break
+      done
+
+      if [ -n "$PRIVATE_IFACE" ]; then
+        ip link set dev "$PRIVATE_IFACE" up || true
+        ip addr add "${node_ip}/${PRIVATE_PREFIX}" dev "$PRIVATE_IFACE" 2>/dev/null || true
+        mkdir -p /etc/netplan
+        cat >/etc/netplan/99-rke2-private.yaml <<EOF
+    network:
+      version: 2
+      ethernets:
+        ${PRIVATE_IFACE}:
+          dhcp4: false
+          dhcp6: false
+          addresses:
+            - ${node_ip}/${PRIVATE_PREFIX}
+    EOF
+        chmod 0600 /etc/netplan/99-rke2-private.yaml
+        netplan apply 2>/dev/null || true
+      fi
+
+      if ip -4 addr show | grep -q "${node_ip}/"; then
+        echo "Configured IONOS private IP ${node_ip} on ${PRIVATE_IFACE}"
+        break
+      fi
+      if [ "$i" -eq 300 ]; then
+        echo "FATAL: IONOS private IP ${node_ip} not present after 300s" >&2
         exit 1
       fi
       sleep 1
@@ -83,8 +116,6 @@ runcmd:
     done
 
   # Detect and set the IONOS private network IP for node-ip.
-  # Uses subnet prefix matching (more reliable than interface names) with a
-  # 60s retry loop to handle DHCP assignment lag on first boot.
   - |
     SUBNET_PREFIX=$(echo "${cluster_subnet_cidr}" | cut -d/ -f1 | cut -d. -f1-2)
     PRIVATE_IP=""
