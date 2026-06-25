@@ -98,24 +98,10 @@ runcmd:
   # Root (uid 0) is exempted so cloud-init and CCM can still function.
   - iptables -I OUTPUT -d 169.254.169.254 -m owner ! --uid-owner 0 -j DROP
 
-  # IONOS assigns the private NIC IP through the server/NIC definition. Do not
-  # hardcode Linux interface names; wait for the expected address to appear.
+  # Defer static private NIC setup to the dedicated block below. IONOS attaches
+  # the NIC with dhcp=false, so Ubuntu will not have node_ip until we configure
+  # it locally.
   - |
-%{ if node_ip != null ~}
-    for i in $(seq 1 120); do
-      if ip -4 addr show | grep -q "${node_ip}/"; then
-        echo "IONOS private IP ${node_ip} detected"
-        break
-      fi
-      if [ "$i" -eq 120 ]; then
-        echo "FATAL: IONOS private IP ${node_ip} not present after 120s" >&2
-        exit 1
-      fi
-      sleep 1
-    done
-%{ else ~}
-    echo "No static private IP was provided; relying on provider DHCP."
-%{ endif ~}
     for i in $(seq 1 60); do
       if getent hosts get.rke2.io >/dev/null 2>&1; then
         break
