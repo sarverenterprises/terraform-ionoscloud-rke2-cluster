@@ -196,12 +196,15 @@ resource "ionoscloud_cube_server" "nodes" {
     }
   }
 
-  nic {
-    lan             = var.private_lan_id
-    name            = "${var.pool_name}-${count.index + 1}-private"
-    dhcp            = false
-    ips             = [local.node_private_ips[count.index]]
-    firewall_active = false
+  dynamic "nic" {
+    for_each = var.assign_public_ip ? [] : [1]
+    content {
+      lan             = var.private_lan_id
+      name            = "${var.pool_name}-${count.index + 1}-private"
+      dhcp            = false
+      ips             = [local.node_private_ips[count.index]]
+      firewall_active = false
+    }
   }
 
   lifecycle {
@@ -209,6 +212,18 @@ resource "ionoscloud_cube_server" "nodes" {
       volume[0].user_data,
     ]
   }
+}
+
+resource "ionoscloud_nic" "private" {
+  count = var.assign_public_ip ? var.node_count : 0
+
+  datacenter_id   = var.datacenter_id
+  server_id       = ionoscloud_cube_server.nodes[count.index].id
+  lan             = var.private_lan_id
+  name            = "${var.pool_name}-${count.index + 1}-private"
+  dhcp            = false
+  ips             = [local.node_private_ips[count.index]]
+  firewall_active = false
 }
 
 resource "ionoscloud_volume" "longhorn_data" {
