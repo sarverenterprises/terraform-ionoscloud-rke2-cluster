@@ -96,13 +96,28 @@ runcmd:
 
       if [ -n "$PRIVATE_IFACE" ]; then
         ip link set dev "$PRIVATE_IFACE" up || true
-        ip addr add "${node_ip}/$${PRIVATE_PREFIX}" dev "$PRIVATE_IFACE" 2>/dev/null || true
+        ip addr replace "${node_ip}/$${PRIVATE_PREFIX}" dev "$PRIVATE_IFACE" 2>/dev/null || true
         mkdir -p /etc/netplan
         DEFAULT_IFACE=$(ip route show default 0.0.0.0/0 | awk '{print $5; exit}')
+        PRIVATE_MAC=$(cat "/sys/class/net/$${PRIVATE_IFACE}/address" 2>/dev/null || true)
         if [ -n "$DEFAULT_IFACE" ]; then
+          DEFAULT_MAC=$(cat "/sys/class/net/$${DEFAULT_IFACE}/address" 2>/dev/null || true)
           # Ubuntu's generated cloud-init netplan can match all en* devices.
           # Restrict DHCP to the public/default NIC so the static private NIC
           # is managed only by 99-rke2-private.yaml.
+          if [ -n "$DEFAULT_MAC" ]; then
+            cat >/etc/netplan/50-cloud-init.yaml <<EOF
+    network:
+      version: 2
+      renderer: networkd
+      ethernets:
+        public-uplink:
+          match:
+            macaddress: "$${DEFAULT_MAC}"
+          dhcp4: true
+          dhcp6: true
+    EOF
+          else
           cat >/etc/netplan/50-cloud-init.yaml <<EOF
     network:
       version: 2
@@ -112,8 +127,24 @@ runcmd:
           dhcp4: true
           dhcp6: true
     EOF
+          fi
           chmod 0600 /etc/netplan/50-cloud-init.yaml
         fi
+        if [ -n "$PRIVATE_MAC" ]; then
+          cat >/etc/netplan/99-rke2-private.yaml <<EOF
+    network:
+      version: 2
+      renderer: networkd
+      ethernets:
+        rke2-private:
+          match:
+            macaddress: "$${PRIVATE_MAC}"
+          dhcp4: false
+          dhcp6: false
+          addresses:
+            - ${node_ip}/$${PRIVATE_PREFIX}
+    EOF
+        else
         cat >/etc/netplan/99-rke2-private.yaml <<EOF
     network:
       version: 2
@@ -125,7 +156,9 @@ runcmd:
           addresses:
             - ${node_ip}/$${PRIVATE_PREFIX}
     EOF
+        fi
         chmod 0600 /etc/netplan/99-rke2-private.yaml
+        netplan generate 2>/dev/null || true
         netplan apply 2>/dev/null || true
       fi
 

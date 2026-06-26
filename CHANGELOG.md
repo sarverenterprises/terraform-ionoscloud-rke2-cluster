@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Persist IONOS public and private NIC netplan entries by MAC address during
+  bootstrap so RKE2 nodes do not depend on a fixed Linux interface name such as
+  `ens7`.
 - Created `terraform-ionoscloud-rke2-cluster` from the existing RKE2 module.
 - Replaced Hetzner infrastructure resources with IONOS Virtual Data Center,
   LAN, Cube server, NIC firewall, and volume resources.
