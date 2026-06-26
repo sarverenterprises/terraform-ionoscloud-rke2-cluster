@@ -1,9 +1,9 @@
 # =============================================================================
 # Cilium CNI
 #
-# Cilium is deployed unconditionally — a CNI is always required for the
-# cluster to function. RKE2 is configured with `cni: none` so that the
-# default Canal is disabled; Cilium takes its place via this Helm release.
+# Cilium is enabled by default because a CNI is always required for the cluster
+# to function. Set enable_cilium=false only when another Terraform state already
+# owns the existing cilium Helm release.
 #
 # Key design constraints:
 #   - routingMode/tunnelProtocol replaces the deprecated `tunnel` key (≥1.14)
@@ -18,6 +18,8 @@
 # Helm release: cilium
 # ---------------------------------------------------------------------------
 resource "helm_release" "cilium" {
+  count = var.enable_cilium ? 1 : 0
+
   name       = "cilium"
   repository = "https://helm.cilium.io/"
   chart      = "cilium"
@@ -96,11 +98,11 @@ resource "helm_release" "cilium" {
 
 # kubectl-based apply: used when kubeconfig is on disk (initial deploy).
 resource "null_resource" "block_metadata_api" {
-  count = var.kubeconfig_path != null ? 1 : 0
+  count = var.enable_cilium && var.kubeconfig_path != null ? 1 : 0
 
   triggers = {
     # Re-apply if the Cilium release changes (upgrade or recreate).
-    cilium_release_id = helm_release.cilium.id
+    cilium_release_id = helm_release.cilium[0].id
   }
 
   provisioner "local-exec" {
@@ -159,7 +161,7 @@ resource "null_resource" "block_metadata_api" {
 
 # kubernetes_manifest fallback: used on subsequent applies when CRD exists.
 resource "kubernetes_manifest" "block_metadata_api" {
-  count = var.kubeconfig_path == null ? 1 : 0
+  count = var.enable_cilium && var.kubeconfig_path == null ? 1 : 0
 
   manifest = {
     apiVersion = "cilium.io/v2"

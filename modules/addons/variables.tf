@@ -27,6 +27,12 @@ variable "kubeconfig_path" {
   default     = null
 }
 
+variable "enable_cilium" {
+  description = "Install and manage Cilium from this add-ons state. Disable when the base cluster state already owns the cilium Helm release."
+  type        = bool
+  default     = true
+}
+
 # =============================================================================
 # Network
 # =============================================================================

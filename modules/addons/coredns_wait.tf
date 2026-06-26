@@ -24,7 +24,7 @@
 resource "null_resource" "wait_for_coredns" {
   triggers = {
     # Re-run whenever Cilium changes — CoreDNS may need a fresh start.
-    cilium_release_id = helm_release.cilium.id
+    cilium_release_id = try(helm_release.cilium[0].id, "cilium-unmanaged")
   }
 
   provisioner "local-exec" {
