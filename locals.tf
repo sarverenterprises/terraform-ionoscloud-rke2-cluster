@@ -20,7 +20,7 @@ locals {
   # CI runners without kernel TUN support can use each node's direct Tailscale IP
   # for health checks and SSH instead of routing the private LAN.
   terraform_management_endpoint_ip = coalesce(var.control_plane_management_endpoint_ip, local.control_plane_endpoint_ip)
-  terraform_control_plane_ips      = length(var.control_plane_management_ips) == 3 ? var.control_plane_management_ips : module.control_plane.private_ips
+  terraform_control_plane_ips      = length(var.control_plane_management_ips) == var.control_plane_node_count ? var.control_plane_management_ips : module.control_plane.private_ips
 
   # ==========================================================================
   # Worker Node Counts (for Longhorn replica computation)

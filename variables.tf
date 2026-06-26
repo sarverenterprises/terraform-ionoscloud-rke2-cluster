@@ -77,6 +77,17 @@ variable "control_plane_server_type" {
   default     = "Basic Cube L"
 }
 
+variable "control_plane_node_count" {
+  description = "Number of control plane nodes. Use 1 for a temporary PoC or 3 for HA embedded etcd."
+  type        = number
+  default     = 3
+
+  validation {
+    condition     = contains([1, 3], var.control_plane_node_count)
+    error_message = "control_plane_node_count must be 1 for a PoC or 3 for HA embedded etcd."
+  }
+}
+
 variable "control_plane_location" {
   description = "IONOS location for control plane nodes. Defaults to var.location if null."
   type        = string
@@ -95,8 +106,8 @@ variable "control_plane_management_ips" {
   default     = []
 
   validation {
-    condition     = length(var.control_plane_management_ips) == 0 || length(var.control_plane_management_ips) == 3
-    error_message = "control_plane_management_ips must be empty or contain exactly 3 control-plane IPs."
+    condition     = length(var.control_plane_management_ips) == 0 || length(var.control_plane_management_ips) == var.control_plane_node_count
+    error_message = "control_plane_management_ips must be empty or match control_plane_node_count."
   }
 }
 

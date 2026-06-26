@@ -36,7 +36,7 @@ module "networking" {
 }
 
 # =============================================================================
-# Control Plane (always 3 nodes — HA embedded etcd)
+# Control Plane
 # =============================================================================
 
 module "control_plane" {
@@ -45,7 +45,7 @@ module "control_plane" {
   pool_name                         = "${var.cluster_name}-cp"
   cluster_name                      = var.cluster_name
   role                              = "server"
-  node_count                        = 3
+  node_count                        = var.control_plane_node_count
   server_type                       = var.control_plane_server_type
   location                          = local.control_plane_location
   os_image                          = var.os_image
@@ -261,6 +261,8 @@ resource "null_resource" "wait_for_cluster" {
 # =============================================================================
 
 resource "terraform_data" "join_cps" {
+  count = var.control_plane_node_count == 3 ? 1 : 0
+
   depends_on = [null_resource.wait_for_cluster]
 
   # Retrigger when either CP-1 or CP-2 server is replaced.

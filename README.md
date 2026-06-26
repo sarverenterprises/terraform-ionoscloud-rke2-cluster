@@ -78,6 +78,7 @@ module "cluster" {
   cluster_name              = "rke2-abby"
   location                  = "us/ewr"
   control_plane_server_type = "Basic Cube L"
+  control_plane_node_count  = 3
   os_image                  = "ubuntu:latest"
 
   ssh_keys        = [file(pathexpand("~/.ssh/id_ed25519.pub"))]
