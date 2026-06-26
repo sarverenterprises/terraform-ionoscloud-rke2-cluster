@@ -1,6 +1,10 @@
 #cloud-config
 # RKE2 Control Plane bootstrap
 # cluster_init=${cluster_init} — true for first node (initializes cluster), false for joiners
+preserve_hostname: false
+hostname: ${hostname}
+fqdn: ${hostname}
+manage_etc_hosts: true
 
 write_files:
   # ---------------------------------------------------------------------------
@@ -187,9 +191,26 @@ runcmd:
         ip link set dev "$PRIVATE_IFACE" up || true
         ip addr add "${node_ip}/$${PRIVATE_PREFIX}" dev "$PRIVATE_IFACE" 2>/dev/null || true
         mkdir -p /etc/netplan
+        DEFAULT_IFACE=$(ip route show default 0.0.0.0/0 | awk '{print $5; exit}')
+        if [ -n "$DEFAULT_IFACE" ]; then
+          # Ubuntu's generated cloud-init netplan can match all en* devices.
+          # Restrict DHCP to the public/default NIC so the static private NIC
+          # is managed only by 99-rke2-private.yaml.
+          cat >/etc/netplan/50-cloud-init.yaml <<EOF
+    network:
+      version: 2
+      renderer: networkd
+      ethernets:
+        $${DEFAULT_IFACE}:
+          dhcp4: true
+          dhcp6: true
+    EOF
+          chmod 0600 /etc/netplan/50-cloud-init.yaml
+        fi
         cat >/etc/netplan/99-rke2-private.yaml <<EOF
     network:
       version: 2
+      renderer: networkd
       ethernets:
         $${PRIVATE_IFACE}:
           dhcp4: false
