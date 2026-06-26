@@ -150,18 +150,37 @@ runcmd:
   - |
     PRIVATE_PREFIX=$(echo "${cluster_subnet_cidr}" | cut -d/ -f2)
     PRIVATE_IFACE=""
+    is_private_candidate() {
+      iface="$1"
+      [ "$iface" != "lo" ] || return 1
+      [ "$iface" != "tailscale0" ] || return 1
+      [ "$(cat "/sys/class/net/$iface/type" 2>/dev/null || true)" = "1" ] || return 1
+      [ -e "/sys/class/net/$iface/device" ] || return 1
+      if ip route show default dev "$iface" 2>/dev/null | grep -q '^default '; then
+        return 1
+      fi
+      return 0
+    }
+    private_ip_present() {
+      for iface in $(ls /sys/class/net); do
+        if is_private_candidate "$iface" && ip -4 addr show dev "$iface" | grep -q "${node_ip}/"; then
+          return 0
+        fi
+      done
+      return 1
+    }
     for i in $(seq 1 300); do
-      if ip -4 addr show | grep -q "${node_ip}/"; then
+      if private_ip_present; then
         echo "Static private IP ${node_ip} detected"
         break
       fi
 
-      for iface in $(ls /sys/class/net | grep -v '^lo$'); do
-        if ip route show default dev "$iface" 2>/dev/null | grep -q '^default '; then
-          continue
+      PRIVATE_IFACE=""
+      for iface in $(ls /sys/class/net); do
+        if is_private_candidate "$iface"; then
+          PRIVATE_IFACE="$iface"
+          break
         fi
-        PRIVATE_IFACE="$iface"
-        break
       done
 
       if [ -n "$PRIVATE_IFACE" ]; then
@@ -182,7 +201,7 @@ runcmd:
         netplan apply 2>/dev/null || true
       fi
 
-      if ip -4 addr show | grep -q "${node_ip}/"; then
+      if private_ip_present; then
         echo "Configured static private IP ${node_ip} on $${PRIVATE_IFACE}"
         break
       fi
