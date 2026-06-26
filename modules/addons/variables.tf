@@ -391,33 +391,33 @@ variable "cilium_chart_version" {
 }
 
 variable "longhorn_chart_version" {
-  description = "Longhorn Helm chart version."
+  description = "Longhorn Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "~> 1.7"
+  default     = "1.7.3"
 }
 
 variable "cert_manager_chart_version" {
-  description = "cert-manager Helm chart version."
+  description = "cert-manager Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "~> 1.16"
+  default     = "v1.16.5"
 }
 
 variable "external_dns_chart_version" {
-  description = "External-DNS Helm chart version."
+  description = "External-DNS Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "~> 1.14"
+  default     = "1.14.5"
 }
 
 variable "traefik_chart_version" {
-  description = "Traefik Helm chart version."
+  description = "Traefik Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "~> 32.0"
+  default     = "32.1.1"
 }
 
 variable "flux_version" {
-  description = "Flux CD version."
+  description = "Flux CD version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "~> 2.4"
+  default     = "2.4.1"
 }
 
 variable "cluster_autoscaler_chart_version" {
@@ -433,25 +433,31 @@ variable "cluster_autoscaler_image_tag" {
 }
 
 variable "argocd_chart_version" {
-  description = "Argo CD Helm chart version."
+  description = "Argo CD Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "~> 9.4"
+  default     = "9.4.18"
 }
 
 variable "argo_rollouts_chart_version" {
-  description = "Argo Rollouts Helm chart version."
+  description = "Argo Rollouts Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "~> 2.40"
+  default     = "2.40.10"
 }
 
 variable "kube_prometheus_stack_chart_version" {
-  description = "kube-prometheus-stack Helm chart version."
+  description = "kube-prometheus-stack Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "~> 67.0"
+  default     = "67.11.0"
 }
 
 variable "system_upgrade_controller_chart_version" {
   description = "System Upgrade Controller Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
   default     = "0.14.2"
+}
+
+variable "tailscale_operator_chart_version" {
+  description = "Tailscale Kubernetes Operator Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
+  type        = string
+  default     = "1.76.6"
 }
