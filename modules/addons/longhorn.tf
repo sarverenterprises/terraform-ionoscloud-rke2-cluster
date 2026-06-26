@@ -50,7 +50,8 @@ resource "helm_release" "longhorn" {
       }
       persistence = {
         defaultClassReplicaCount = var.longhorn_default_replicas
-        defaultClass             = true
+        # The module creates longhorn-rwo as the default class below.
+        defaultClass = false
       }
     })
   ]
