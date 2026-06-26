@@ -5,11 +5,9 @@
 # The operator enables Tailscale-based ingress/egress for Services and exposes
 # Kubernetes services onto the tailnet without a traditional ingress controller.
 #
-# Authentication uses an OAuth client secret stored in a Kubernetes Secret.
-# The secret is pre-created before the Helm release so the operator can read
-# its credentials on first startup. The operator hostname on the tailnet is
-# set to "<cluster_name>-operator" to avoid naming collisions when multiple
-# clusters share the same tailnet.
+# Authentication uses a Tailscale OAuth client ID and secret. The operator
+# hostname on the tailnet is set to "<cluster_name>-operator" to avoid naming
+# collisions when multiple clusters share the same tailnet.
 #
 # Deployed only when var.enable_tailscale_operator == true.
 # =============================================================================
@@ -23,34 +21,6 @@ resource "kubernetes_namespace_v1" "tailscale" {
   metadata {
     name = "tailscale"
   }
-}
-
-# ---------------------------------------------------------------------------
-# Secret: operator-oauth
-#
-# The Tailscale operator reads OAuth credentials from this secret.
-# client_id is left empty here — the operator should be configured with an
-# OAuth client (not an auth key). For auth-key-based bootstrapping, set
-# client_secret to var.tailscale_operator_auth_key. The operator chart will
-# use whichever credential is populated at install time.
-#
-# Operator fills in client_id via their OAuth app registration in the
-# Tailscale admin console; client_secret carries the auth key or OAuth secret.
-# ---------------------------------------------------------------------------
-resource "kubernetes_secret_v1" "tailscale_operator_oauth" {
-  count = var.enable_tailscale_operator ? 1 : 0
-
-  metadata {
-    name      = "operator-oauth"
-    namespace = kubernetes_namespace_v1.tailscale[0].metadata[0].name
-  }
-
-  data = {
-    client_id     = ""
-    client_secret = var.tailscale_operator_auth_key != null ? var.tailscale_operator_auth_key : ""
-  }
-
-  depends_on = [kubernetes_namespace_v1.tailscale]
 }
 
 # ---------------------------------------------------------------------------
@@ -69,15 +39,23 @@ resource "helm_release" "tailscale_operator" {
   atomic  = true
   timeout = 300
 
+  lifecycle {
+    precondition {
+      condition = (
+        var.tailscale_operator_oauth_client_id != null &&
+        var.tailscale_operator_oauth_client_id != "" &&
+        var.tailscale_operator_oauth_client_secret != null &&
+        var.tailscale_operator_oauth_client_secret != ""
+      )
+      error_message = "enable_tailscale_operator requires tailscale_operator_oauth_client_id and tailscale_operator_oauth_client_secret."
+    }
+  }
+
   values = [
     yamlencode({
       oauth = {
-        # Credentials are sourced from the operator-oauth secret pre-created
-        # above. Setting these to empty strings here defers authentication to
-        # the secret; the operator will read its credentials from the secret
-        # rather than from chart values (which would be visible in Helm state).
-        clientId     = ""
-        clientSecret = ""
+        clientId     = var.tailscale_operator_oauth_client_id
+        clientSecret = var.tailscale_operator_oauth_client_secret
       }
       operatorConfig = {
         # Unique hostname on the tailnet — avoids collisions when multiple
@@ -87,5 +65,5 @@ resource "helm_release" "tailscale_operator" {
     })
   ]
 
-  depends_on = [kubernetes_secret_v1.tailscale_operator_oauth]
+  depends_on = [kubernetes_namespace_v1.tailscale]
 }

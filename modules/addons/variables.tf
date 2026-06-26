@@ -146,7 +146,21 @@ variable "tailscale_node_auth_key" {
 }
 
 variable "tailscale_operator_auth_key" {
-  description = "Tailscale auth key for the Kubernetes operator."
+  description = "Deprecated compatibility input. Use tailscale_operator_oauth_client_id and tailscale_operator_oauth_client_secret."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "tailscale_operator_oauth_client_id" {
+  description = "Tailscale OAuth client ID for the Kubernetes operator."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "tailscale_operator_oauth_client_secret" {
+  description = "Tailscale OAuth client secret for the Kubernetes operator."
   type        = string
   sensitive   = true
   default     = null
