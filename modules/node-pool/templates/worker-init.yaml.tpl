@@ -13,7 +13,6 @@ write_files:
     content: |
       server: https://${control_plane_lb_ip}:9345
       token: "${rke2_token}"
-      cloud-provider-name: external
       cni: none
 %{ if has_labels ~}
       node-label:

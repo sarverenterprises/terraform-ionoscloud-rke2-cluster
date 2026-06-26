@@ -58,7 +58,6 @@ write_files:
       server: https://${first_cp_ip}:9345
 %{ endif ~}
       token: "${rke2_token}"
-      cloud-provider-name: external
       cni: none
       secrets-encryption: true
       cluster-cidr: "${pod_cidr}"
