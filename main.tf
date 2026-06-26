@@ -412,6 +412,11 @@ EOF
   }
 }
 
+moved {
+  from = terraform_data.join_cps
+  to   = terraform_data.join_cps[0]
+}
+
 resource "null_resource" "fetch_kubeconfig" {
   depends_on = [null_resource.wait_for_cluster, terraform_data.join_cps]
 
