@@ -40,6 +40,12 @@ variable "os_image" {
   default     = "ubuntu:latest"
 }
 
+variable "bootstrap_revision" {
+  description = "Operator-controlled bootstrap revision. Changing it intentionally replaces nodes so cloud-init reruns."
+  type        = string
+  default     = "1"
+}
+
 variable "ssh_keys" {
   description = "List of SSH public key file paths or direct public key strings for IONOS Linux image injection."
   type        = list(string)

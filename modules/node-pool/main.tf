@@ -155,6 +155,10 @@ data "ionoscloud_template" "selected" {
   name = var.server_type
 }
 
+resource "terraform_data" "bootstrap_revision" {
+  input = var.bootstrap_revision
+}
+
 resource "ionoscloud_cube_server" "nodes" {
   count = var.node_count
 
@@ -210,6 +214,9 @@ resource "ionoscloud_cube_server" "nodes" {
   lifecycle {
     ignore_changes = [
       volume[0].user_data,
+    ]
+    replace_triggered_by = [
+      terraform_data.bootstrap_revision,
     ]
   }
 }

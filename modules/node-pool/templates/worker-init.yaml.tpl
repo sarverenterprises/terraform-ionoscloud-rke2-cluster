@@ -46,7 +46,6 @@ runcmd:
     tailscale up \
       --auth-key="${tailscale_auth_key}" \
       --hostname="${hostname}" \
-      --ephemeral \
       2>&1 | tee -a /var/log/tailscale-setup.log
     if ! tailscale status >/dev/null 2>&1; then
       echo "ERROR: Tailscale enrollment failed — node will not be reachable via tailnet" >&2

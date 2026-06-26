@@ -49,6 +49,7 @@ module "control_plane" {
   server_type                       = var.control_plane_server_type
   location                          = local.control_plane_location
   os_image                          = var.os_image
+  bootstrap_revision                = var.node_bootstrap_revision
   ssh_keys                          = var.ssh_keys
   datacenter_id                     = module.networking.datacenter_id
   public_lan_id                     = module.networking.public_lan_id
@@ -115,19 +116,20 @@ module "worker_pools" {
 
   source = "./modules/node-pool"
 
-  pool_name      = "${var.cluster_name}-${each.key}"
-  cluster_name   = var.cluster_name
-  role           = "agent"
-  node_count     = each.value.scaling_mode == "autoscaled" ? each.value.min_nodes : each.value.node_count
-  server_type    = each.value.server_type
-  location       = coalesce(each.value.location, var.location)
-  os_image       = var.os_image
-  ssh_keys       = var.ssh_keys
-  datacenter_id  = module.networking.datacenter_id
-  public_lan_id  = module.networking.public_lan_id
-  private_lan_id = module.networking.private_lan_id
-  network_id     = module.networking.network_id
-  subnet_id      = module.networking.subnet_id
+  pool_name          = "${var.cluster_name}-${each.key}"
+  cluster_name       = var.cluster_name
+  role               = "agent"
+  node_count         = each.value.scaling_mode == "autoscaled" ? each.value.min_nodes : each.value.node_count
+  server_type        = each.value.server_type
+  location           = coalesce(each.value.location, var.location)
+  os_image           = var.os_image
+  bootstrap_revision = var.node_bootstrap_revision
+  ssh_keys           = var.ssh_keys
+  datacenter_id      = module.networking.datacenter_id
+  public_lan_id      = module.networking.public_lan_id
+  private_lan_id     = module.networking.private_lan_id
+  network_id         = module.networking.network_id
+  subnet_id          = module.networking.subnet_id
 
   # Worker pools do not use a placement group or LB registration
   placement_group_id   = null
@@ -186,7 +188,6 @@ resource "null_resource" "wait_for_cluster" {
     environment = {
       ENDPOINT_IP = local.terraform_management_endpoint_ip
       CP0_HOST    = "${var.cluster_name}-cp-1"
-      SSHKEY      = var.ssh_private_key
     }
     command = <<-EOT
       MAX_ATTEMPTS=120
@@ -212,56 +213,6 @@ resource "null_resource" "wait_for_cluster" {
               | select(test("^100\\."))
             ' \
           | head -1
-      }
-
-      run_cp0_diagnostics() {
-        if [ -z "$${SSHKEY:-}" ]; then
-          echo "CP-0 diagnostics skipped: ssh_private_key is empty." >&2
-          return 0
-        fi
-        if [ -z "$${SSH_SOCKS_PROXY:-}" ]; then
-          echo "CP-0 diagnostics skipped: SSH_SOCKS_PROXY is not set." >&2
-          return 0
-        fi
-
-        local ssh_key_file
-        ssh_key_file="$(mktemp)"
-        printf '%s\n' "$SSHKEY" > "$ssh_key_file"
-        chmod 600 "$ssh_key_file"
-        trap 'rm -f "$ssh_key_file"' RETURN
-
-        local diagnostic_targets=()
-        if [ -n "$${TS_ENDPOINT:-}" ]; then
-          diagnostic_targets+=("$TS_ENDPOINT")
-        fi
-        diagnostic_targets+=("$ENDPOINT_IP")
-
-        for target in "$${diagnostic_targets[@]}"; do
-          echo "Running CP-0 diagnostics over SSH via $target ..." >&2
-          if ssh \
-            -o "ProxyCommand=nc -X 5 -x $${SSH_SOCKS_PROXY} %h %p" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=no \
-            -o UserKnownHostsFile=/dev/null \
-            -o LogLevel=ERROR \
-            -o ConnectTimeout=15 \
-            -i "$ssh_key_file" \
-            root@"$target" \
-            'set -o pipefail
-             echo "=== hostname ==="; hostname
-             echo "=== cloud-init status ==="; cloud-init status --long || true
-             echo "=== rke2-server status ==="; systemctl status rke2-server --no-pager --full || true
-             echo "=== listening ports ==="; ss -lntp | grep -E ":(22|6443|9345)\\b" || true
-             echo "=== addresses ==="; ip -4 -brief addr || true
-             echo "=== routes ==="; ip route || true
-             echo "=== tailscale status ==="; tailscale status || true
-             echo "=== rke2-server journal ==="; journalctl -u rke2-server -n 160 --no-pager || true
-             echo "=== cloud-init output tail ==="; tail -n 120 /var/log/cloud-init-output.log || true'; then
-            return 0
-          fi
-          echo "CP-0 SSH diagnostics via $target failed." >&2
-        done
       }
 
       CHECK_ENDPOINTS=()
@@ -290,8 +241,7 @@ resource "null_resource" "wait_for_cluster" {
       done
 
       echo "ERROR: API server at https://$ENDPOINT_IP:6443/healthz did not become healthy after $(( MAX_ATTEMPTS * SLEEP_SEC ))s." >&2
-      echo "Collecting CP-0 diagnostics before failing wait_for_cluster." >&2
-      run_cp0_diagnostics >&2 || true
+      echo "CP-0 did not become reachable. Check cloud-init and Tailscale node enrollment on the control-plane server." >&2
       exit 1
     EOT
   }

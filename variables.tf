@@ -100,6 +100,12 @@ variable "control_plane_management_ips" {
   }
 }
 
+variable "node_bootstrap_revision" {
+  description = "Operator-controlled bootstrap revision. Change this value to intentionally replace nodes and rerun cloud-init after bootstrap logic changes."
+  type        = string
+  default     = "1"
+}
+
 # =============================================================================
 # Networking
 # =============================================================================
