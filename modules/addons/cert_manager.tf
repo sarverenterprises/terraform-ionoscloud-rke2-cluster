@@ -63,22 +63,80 @@ resource "helm_release" "cert_manager" {
     })
   ]
 
+  lifecycle {
+    precondition {
+      condition     = trimspace(var.cert_manager_acme_email) != ""
+      error_message = "enable_cert_manager requires cert_manager_acme_email to be set."
+    }
+  }
+
   depends_on = [kubernetes_namespace_v1.cert_manager]
 }
 
 # ---------------------------------------------------------------------------
 # ClusterIssuer: letsencrypt-prod
 # Uses Cloudflare DNS-01 so certificates can be issued for non-HTTP
-# workloads and wildcard domains. The email field is intentionally left
-# empty — the operator must set it via the cloudflare_acme_email variable
-# or by patching this manifest post-deploy.
+# workloads and wildcard domains.
 #
 # NOTE: kubernetes_manifest requires the cert-manager CRDs to be present.
-# The depends_on on helm_release.cert_manager ensures CRDs are installed
-# before this resource is applied.
+# When kubeconfig_path is set, kubectl applies the issuer at apply time after
+# the Helm release installs the CRDs. The kubernetes_manifest fallback is for
+# steady-state use when the CRDs already exist before planning.
 # ---------------------------------------------------------------------------
+resource "null_resource" "letsencrypt_prod_cluster_issuer" {
+  count = var.enable_cert_manager && var.kubeconfig_path != null ? 1 : 0
+
+  triggers = {
+    cert_manager_release_id = helm_release.cert_manager[0].id
+    acme_email              = var.cert_manager_acme_email
+    secret_name             = kubernetes_secret_v1.cloudflare_api_token_cert_manager[0].metadata[0].name
+  }
+
+  provisioner "local-exec" {
+    command     = <<-EOT
+      echo "Waiting for CRD clusterissuers.cert-manager.io to appear..."
+      for i in $(seq 1 24); do
+        kubectl --kubeconfig '${var.kubeconfig_path}' \
+          get crd clusterissuers.cert-manager.io \
+          --ignore-not-found 2>/dev/null | grep -q clusterissuers \
+          && break
+        echo "  attempt $i/24: CRD not found yet, retrying in 5s..."
+        sleep 5
+      done
+      kubectl --kubeconfig '${var.kubeconfig_path}' \
+        wait --for=condition=established \
+        crd/clusterissuers.cert-manager.io \
+        --timeout=60s
+      kubectl --kubeconfig '${var.kubeconfig_path}' apply -f - <<'ISSUER'
+      apiVersion: cert-manager.io/v1
+      kind: ClusterIssuer
+      metadata:
+        name: letsencrypt-prod
+      spec:
+        acme:
+          server: https://acme-v02.api.letsencrypt.org/directory
+          email: ${var.cert_manager_acme_email}
+          privateKeySecretRef:
+            name: letsencrypt-prod
+          solvers:
+          - dns01:
+              cloudflare:
+                apiTokenSecretRef:
+                  name: ${kubernetes_secret_v1.cloudflare_api_token_cert_manager[0].metadata[0].name}
+                  key: api-token
+      ISSUER
+    EOT
+    interpreter = ["/bin/bash", "-c"]
+  }
+
+  depends_on = [
+    helm_release.cert_manager,
+    kubernetes_secret_v1.cloudflare_api_token_cert_manager,
+  ]
+}
+
 resource "kubernetes_manifest" "letsencrypt_prod_cluster_issuer" {
-  count = var.enable_cert_manager ? 1 : 0
+  count = var.enable_cert_manager && var.kubeconfig_path == null ? 1 : 0
 
   manifest = {
     apiVersion = "cert-manager.io/v1"
@@ -89,9 +147,7 @@ resource "kubernetes_manifest" "letsencrypt_prod_cluster_issuer" {
     spec = {
       acme = {
         server = "https://acme-v02.api.letsencrypt.org/directory"
-        # Operator fills in their email address — left empty to avoid
-        # committing a PII value into the module defaults.
-        email = ""
+        email  = var.cert_manager_acme_email
         privateKeySecretRef = {
           name = "letsencrypt-prod"
         }

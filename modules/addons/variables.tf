@@ -182,6 +182,12 @@ variable "enable_cert_manager" {
   default     = false
 }
 
+variable "cert_manager_acme_email" {
+  description = "ACME account email address for the cert-manager letsencrypt-prod ClusterIssuer."
+  type        = string
+  default     = ""
+}
+
 variable "enable_ingress" {
   description = "Deploy Traefik ingress controller."
   type        = bool
