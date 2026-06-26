@@ -31,7 +31,7 @@ runcmd:
   # Install and configure Tailscale before private-network and RKE2 work. If
   # bootstrap stalls, the node remains reachable for diagnostics.
   - |
-    for attempt in 1 2 3; do
+    for attempt in 1 2 3 4 5; do
       if curl -fsSL https://tailscale.com/install.sh -o /tmp/install-tailscale.sh \
         && sh /tmp/install-tailscale.sh; then
         break
@@ -40,7 +40,7 @@ runcmd:
       sleep $((attempt * 10))
     done
     if ! command -v tailscale >/dev/null 2>&1; then
-      echo "FATAL: Tailscale install failed after 3 attempts" >&2
+      echo "FATAL: Tailscale install failed after 5 attempts" >&2
       exit 1
     fi
     tailscale up \
