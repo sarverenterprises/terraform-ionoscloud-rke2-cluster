@@ -216,6 +216,12 @@ variable "enable_tailscale_operator" {
   default     = false
 }
 
+variable "enable_cloudflare_tunnel" {
+  description = "Deploy a Cloudflare Tunnel and in-cluster cloudflared connectors."
+  type        = bool
+  default     = false
+}
+
 variable "enable_system_upgrade_controller" {
   description = "Deploy Rancher System Upgrade Controller."
   type        = bool
@@ -243,6 +249,40 @@ variable "cloudflare_zone" {
   description = "Cloudflare zone domain (e.g., 'example.com')."
   type        = string
   default     = null
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID. Required when enable_cloudflare_tunnel = true."
+  type        = string
+  default     = null
+}
+
+variable "cloudflare_tunnel_name" {
+  description = "Cloudflare Tunnel name. Defaults to '<cluster_name>-ingress'."
+  type        = string
+  default     = null
+}
+
+variable "cloudflare_tunnel_replicas" {
+  description = "Number of cloudflared connector replicas to run in-cluster."
+  type        = number
+  default     = 2
+}
+
+variable "cloudflared_image" {
+  description = "cloudflared container image to run for Cloudflare Tunnel connectors."
+  type        = string
+  default     = "cloudflare/cloudflared:2026.6.1"
+}
+
+variable "cloudflare_tunnel_ingress" {
+  description = "Cloudflare Tunnel ingress rules. A http_status:404 catch-all is always appended."
+  type = list(object({
+    hostname = optional(string)
+    path     = optional(string)
+    service  = string
+  }))
+  default = []
 }
 
 # =============================================================================

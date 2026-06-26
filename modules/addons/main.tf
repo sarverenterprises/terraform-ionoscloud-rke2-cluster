@@ -12,6 +12,7 @@
 #   flux.tf             — Flux CD bootstrap
 #   monitoring.tf       — kube-prometheus-stack
 #   tailscale.tf        — Tailscale Kubernetes operator
+#   cloudflare_tunnel.tf — Cloudflare Tunnel connector
 #
 # IMPORTANT: This IONOS first cut intentionally omits provider CCM, provider CSI,
 # and Cluster Autoscaler. Use Cloudflare Tunnel for ingress, Longhorn for storage,

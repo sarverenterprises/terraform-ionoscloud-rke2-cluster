@@ -34,3 +34,17 @@ output "argocd_admin_password_hint" {
   EOT
   value       = var.enable_argocd ? "See output description for kubectl retrieval command." : null
 }
+
+# ---------------------------------------------------------------------------
+# Cloudflare Tunnel
+# ---------------------------------------------------------------------------
+
+output "cloudflare_tunnel_id" {
+  description = "Cloudflare Tunnel ID."
+  value       = var.enable_cloudflare_tunnel ? cloudflare_zero_trust_tunnel_cloudflared.this[0].id : null
+}
+
+output "cloudflare_tunnel_name" {
+  description = "Cloudflare Tunnel name."
+  value       = var.enable_cloudflare_tunnel ? cloudflare_zero_trust_tunnel_cloudflared.this[0].name : null
+}
