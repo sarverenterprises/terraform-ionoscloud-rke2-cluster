@@ -35,8 +35,12 @@ resource "helm_release" "tailscale_operator" {
   namespace  = kubernetes_namespace_v1.tailscale[0].metadata[0].name
   version    = var.tailscale_operator_chart_version
 
-  wait    = true
-  atomic  = true
+  # Do not roll back OAuth credential changes just because the operator pod is
+  # temporarily unhealthy. This chart creates the operator-oauth Secret from
+  # Helm values; atomic rollback can restore stale credentials and obscure the
+  # real runtime error.
+  wait    = false
+  atomic  = false
   timeout = 300
 
   lifecycle {
