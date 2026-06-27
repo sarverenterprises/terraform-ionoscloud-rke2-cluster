@@ -85,11 +85,11 @@ resource "helm_release" "external_dns_proxied" {
       ]
       txtOwnerId = "${var.cluster_name}-proxied"
       sources    = local.external_dns_sources
+      extraArgs = [
+        "--annotation-filter=external-dns.alpha.kubernetes.io/cloudflare-proxied=true",
+        "--cloudflare-proxied",
+      ]
       # Only manage records for services/ingresses explicitly requesting proxy mode.
-      annotationFilter = "external-dns.alpha.kubernetes.io/cloudflare-proxied=true"
-      cloudflare = {
-        proxied = true
-      }
     })
   ]
 
@@ -132,12 +132,11 @@ resource "helm_release" "external_dns_dnsonly" {
       ]
       txtOwnerId = "${var.cluster_name}-dnsonly"
       sources    = local.external_dns_sources
+      extraArgs = [
+        "--annotation-filter=external-dns.alpha.kubernetes.io/cloudflare-proxied!=true",
+      ]
       # Manage all records NOT explicitly requesting proxy mode (!=true covers
       # both absent annotation and cloudflare-proxied=false).
-      annotationFilter = "external-dns.alpha.kubernetes.io/cloudflare-proxied!=true"
-      cloudflare = {
-        proxied = false
-      }
     })
   ]
 
