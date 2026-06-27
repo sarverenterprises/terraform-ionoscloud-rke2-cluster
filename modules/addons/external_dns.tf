@@ -84,6 +84,7 @@ resource "helm_release" "external_dns_proxied" {
         }
       ]
       txtOwnerId = "${var.cluster_name}-proxied"
+      txtPrefix  = "_external-dns-${var.cluster_name}-proxied."
       sources    = local.external_dns_sources
       extraArgs = [
         "--annotation-filter=external-dns.alpha.kubernetes.io/cloudflare-proxied=true",
@@ -131,6 +132,7 @@ resource "helm_release" "external_dns_dnsonly" {
         }
       ]
       txtOwnerId = "${var.cluster_name}-dnsonly"
+      txtPrefix  = "_external-dns-${var.cluster_name}-dnsonly."
       sources    = local.external_dns_sources
       extraArgs = [
         "--annotation-filter=external-dns.alpha.kubernetes.io/cloudflare-proxied=false",
