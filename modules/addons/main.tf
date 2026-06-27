@@ -5,6 +5,7 @@
 # Each component is behind a feature flag and implemented in its own file:
 #
 #   cilium.tf           — Cilium CNI
+#   coredns.tf          — RKE2 CoreDNS upstream resolver override
 #   external_dns.tf     — External-DNS (two Cloudflare deployments)
 #   cert_manager.tf     — cert-manager + Cloudflare ClusterIssuer
 #   envoy_gateway.tf    — Envoy Gateway + default Gateway API entrypoint

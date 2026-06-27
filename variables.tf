@@ -139,6 +139,17 @@ variable "node_dns_search_domains" {
   }
 }
 
+variable "coredns_upstream_servers" {
+  description = "Optional public IPv4 DNS resolvers for RKE2 CoreDNS upstream forwarding. When empty, RKE2's default /etc/resolv.conf forwarding is left unchanged."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for server in var.coredns_upstream_servers : can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}$", server))])
+    error_message = "coredns_upstream_servers must contain IPv4 resolver addresses."
+  }
+}
+
 # =============================================================================
 # Networking
 # =============================================================================

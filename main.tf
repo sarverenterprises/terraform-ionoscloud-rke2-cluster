@@ -526,9 +526,10 @@ module "addons" {
   kubeconfig_path = local.kubeconfig_path
   location        = local.control_plane_location
 
-  private_network_name = module.networking.network_name
-  private_network_id   = module.networking.network_id
-  pod_cidr             = var.pod_cidr
+  private_network_name     = module.networking.network_name
+  private_network_id       = module.networking.network_id
+  pod_cidr                 = var.pod_cidr
+  coredns_upstream_servers = var.coredns_upstream_servers
 
   # Worker pool info reserved for future IONOS autoscaler support.
   node_pools                  = var.node_pools

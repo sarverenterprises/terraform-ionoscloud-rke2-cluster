@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added an optional RKE2 CoreDNS `HelmChartConfig` override so clusters can
+  forward public DNS queries to explicit upstream resolvers instead of pod
+  `/etc/resolv.conf`, preventing inherited resolver/search-domain behavior from
+  causing public AAAA lookups to return `SERVFAIL`.
 - Updated Abby-relevant add-on defaults for security and maintenance:
   cert-manager v1.20.3, External Secrets Operator 2.7.0, Flux chart 2.18.4,
   kube-prometheus-stack 87.2.1, Tailscale operator 1.98.4, and Longhorn 1.8.2
