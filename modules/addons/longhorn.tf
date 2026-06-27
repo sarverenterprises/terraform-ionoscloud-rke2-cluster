@@ -2,8 +2,9 @@
 # Longhorn Distributed Storage
 #
 # Deploys Longhorn as the cluster's primary distributed block storage layer.
-# Data is stored on the node OS disk or optional dedicated IONOS volumes mounted
-# at /mnt/longhorn.
+# Data is stored in a node-local folder by default (/var/lib/longhorn), or on
+# optional dedicated IONOS volumes when longhorn_default_data_path points at
+# that mount path (for example /mnt/longhorn).
 #
 # Two StorageClasses are created:
 #   - longhorn-rwo  ReadWriteOnce  (default)
@@ -46,7 +47,7 @@ resource "helm_release" "longhorn" {
     yamlencode({
       defaultSettings = {
         defaultReplicaCount = var.longhorn_default_replicas
-        defaultDataPath     = "/mnt/longhorn"
+        defaultDataPath     = var.longhorn_default_data_path
       }
       persistence = {
         defaultClassReplicaCount = var.longhorn_default_replicas

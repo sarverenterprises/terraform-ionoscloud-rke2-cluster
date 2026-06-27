@@ -343,6 +343,12 @@ variable "longhorn_rwx_mode" {
   }
 }
 
+variable "longhorn_default_data_path" {
+  description = "Longhorn default data path for node-local storage. Use /var/lib/longhorn for OS-disk folder-backed storage; use /mnt/longhorn only when dedicated data volumes are mounted there."
+  type        = string
+  default     = "/var/lib/longhorn"
+}
+
 variable "enable_cluster_autoscaler" {
   description = "Deprecated for IONOS first cut. Static node pools are supported; autoscaler wiring is intentionally disabled."
   type        = bool

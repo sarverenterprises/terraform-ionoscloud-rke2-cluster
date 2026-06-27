@@ -30,6 +30,10 @@ runcmd:
   # Root (uid 0) is exempted so cloud-init and CCM can still function.
   - iptables -I OUTPUT -d 169.254.169.254 -m owner ! --uid-owner 0 -j DROP
 
+  # Longhorn uses node-local OS disk storage by default when no dedicated data
+  # volume is attached.
+  - mkdir -p /var/lib/longhorn
+
 %{ if enable_tailscale ~}
   # Install and configure Tailscale before private-network and RKE2 work. If
   # bootstrap stalls, the node remains reachable for diagnostics.

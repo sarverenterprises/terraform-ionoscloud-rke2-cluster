@@ -101,6 +101,10 @@ runcmd:
   # Root (uid 0) is exempted so cloud-init and CCM can still function.
   - iptables -I OUTPUT -d 169.254.169.254 -m owner ! --uid-owner 0 -j DROP
 
+  # Longhorn uses node-local OS disk storage by default when no dedicated data
+  # volume is attached.
+  - mkdir -p /var/lib/longhorn
+
 %{ if enable_tailscale ~}
   # Enroll in Tailscale before private-NIC bootstrap gates. Do not advertise
   # subnet routes yet; route advertisement happens only after the IONOS private
