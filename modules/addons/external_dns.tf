@@ -42,6 +42,13 @@ resource "kubernetes_secret_v1" "cloudflare_api_token_external_dns" {
   }
 }
 
+locals {
+  external_dns_sources = concat(
+    ["service", "ingress"],
+    var.enable_envoy_gateway ? ["gateway-httproute"] : []
+  )
+}
+
 # ---------------------------------------------------------------------------
 # Helm release: external-dns-proxied
 # Handles records for public-facing services annotated with
@@ -80,6 +87,7 @@ resource "helm_release" "external_dns_proxied" {
       domainFilters = [
         var.cloudflare_zone
       ]
+      sources = local.external_dns_sources
       # Only manage records for services/ingresses explicitly requesting proxy mode.
       annotationFilter = "external-dns.alpha.kubernetes.io/cloudflare-proxied=true"
       cloudflare = {
@@ -129,6 +137,7 @@ resource "helm_release" "external_dns_dnsonly" {
       domainFilters = [
         var.cloudflare_zone
       ]
+      sources = local.external_dns_sources
       # Manage all records NOT explicitly requesting proxy mode (!=true covers
       # both absent annotation and cloudflare-proxied=false).
       annotationFilter = "external-dns.alpha.kubernetes.io/cloudflare-proxied!=true"

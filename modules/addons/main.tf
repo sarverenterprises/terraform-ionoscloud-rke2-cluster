@@ -7,6 +7,7 @@
 #   cilium.tf           — Cilium CNI
 #   external_dns.tf     — External-DNS (two Cloudflare deployments)
 #   cert_manager.tf     — cert-manager + Cloudflare ClusterIssuer
+#   envoy_gateway.tf    — Envoy Gateway + default Gateway API entrypoint
 #   ingress.tf          — Traefik (+ Gateway API CRDs)
 #   longhorn.tf         — Longhorn distributed storage
 #   flux.tf             — Flux CD bootstrap

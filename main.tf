@@ -546,6 +546,7 @@ module "addons" {
   enable_external_dns        = var.enable_external_dns
   enable_cert_manager        = var.enable_cert_manager
   enable_ingress             = var.enable_ingress
+  enable_envoy_gateway       = var.enable_envoy_gateway
   enable_longhorn            = var.enable_longhorn
   longhorn_rwx_mode          = var.longhorn_rwx_mode
   longhorn_default_data_path = var.longhorn_default_data_path
@@ -561,6 +562,24 @@ module "addons" {
   cloudflare_api_token = var.cloudflare_api_token
   cloudflare_zone_id   = var.cloudflare_zone_id
   cloudflare_zone      = var.cloudflare_zone
+
+  cloudflare_account_id      = var.cloudflare_account_id
+  enable_cloudflare_tunnel   = var.enable_cloudflare_tunnel
+  cloudflare_tunnel_name     = var.cloudflare_tunnel_name
+  cloudflare_tunnel_replicas = var.cloudflare_tunnel_replicas
+  cloudflared_image          = var.cloudflared_image
+  cloudflare_tunnel_ingress  = var.cloudflare_tunnel_ingress
+
+  # Envoy Gateway
+  envoy_gateway_namespace           = var.envoy_gateway_namespace
+  envoy_gateway_proxy_name          = var.envoy_gateway_proxy_name
+  envoy_gateway_class_name          = var.envoy_gateway_class_name
+  envoy_gateway_name                = var.envoy_gateway_name
+  envoy_gateway_service_name        = var.envoy_gateway_service_name
+  envoy_gateway_hostnames           = var.envoy_gateway_hostnames
+  envoy_gateway_listener_hostname   = var.envoy_gateway_listener_hostname
+  envoy_gateway_allowed_routes_from = var.envoy_gateway_allowed_routes_from
+  envoy_gateway_controller_replicas = var.envoy_gateway_controller_replicas
 
   # GitHub / Flux
   github_token     = var.github_token
@@ -588,6 +607,7 @@ module "addons" {
   longhorn_chart_version              = var.longhorn_chart_version
   cert_manager_chart_version          = var.cert_manager_chart_version
   external_dns_chart_version          = var.external_dns_chart_version
+  envoy_gateway_chart_version         = var.envoy_gateway_chart_version
   traefik_chart_version               = var.traefik_chart_version
   flux_version                        = var.flux_version
   cluster_autoscaler_chart_version    = var.cluster_autoscaler_chart_version

@@ -326,6 +326,12 @@ variable "enable_ingress" {
   default     = false
 }
 
+variable "enable_envoy_gateway" {
+  description = "Deploy Envoy Gateway and a default Gateway API Gateway for Cloudflare Tunnel ingress."
+  type        = bool
+  default     = false
+}
+
 variable "enable_longhorn" {
   description = "Deploy Longhorn distributed storage with RWO and RWX StorageClasses."
   type        = bool
@@ -422,6 +428,109 @@ variable "cloudflare_zone" {
   description = "Cloudflare zone domain (e.g., 'example.com'). Required for external-dns domainFilter."
   type        = string
   default     = null
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID. Required when enable_cloudflare_tunnel = true."
+  type        = string
+  default     = null
+}
+
+variable "enable_cloudflare_tunnel" {
+  description = "Deploy a Cloudflare Tunnel and in-cluster cloudflared connectors."
+  type        = bool
+  default     = false
+}
+
+variable "cloudflare_tunnel_name" {
+  description = "Cloudflare Tunnel name. Defaults to '<cluster_name>-ingress'."
+  type        = string
+  default     = null
+}
+
+variable "cloudflare_tunnel_replicas" {
+  description = "Number of cloudflared connector replicas to run in-cluster."
+  type        = number
+  default     = 2
+}
+
+variable "cloudflared_image" {
+  description = "cloudflared container image to run for Cloudflare Tunnel connectors."
+  type        = string
+  default     = "cloudflare/cloudflared:2026.6.1"
+}
+
+variable "cloudflare_tunnel_ingress" {
+  description = "Additional Cloudflare Tunnel ingress rules. Envoy Gateway hostnames and a 404 catch-all are appended automatically."
+  type = list(object({
+    hostname = optional(string)
+    path     = optional(string)
+    service  = string
+  }))
+  default = []
+}
+
+# =============================================================================
+# Envoy Gateway
+# =============================================================================
+
+variable "envoy_gateway_namespace" {
+  description = "Namespace for Envoy Gateway controller and default Gateway resources."
+  type        = string
+  default     = "envoy-gateway-system"
+}
+
+variable "envoy_gateway_proxy_name" {
+  description = "EnvoyProxy resource name used by the Terraform-managed GatewayClass."
+  type        = string
+  default     = "public"
+}
+
+variable "envoy_gateway_class_name" {
+  description = "GatewayClass name for the Terraform-managed Envoy Gateway."
+  type        = string
+  default     = "envoy"
+}
+
+variable "envoy_gateway_name" {
+  description = "Default Gateway resource name."
+  type        = string
+  default     = "public"
+}
+
+variable "envoy_gateway_service_name" {
+  description = "Stable Envoy data-plane Service name used by Cloudflare Tunnel."
+  type        = string
+  default     = "envoy-gateway-public"
+}
+
+variable "envoy_gateway_hostnames" {
+  description = "Hostnames routed by Cloudflare Tunnel to Envoy Gateway and advertised by ExternalDNS."
+  type        = list(string)
+  default     = []
+}
+
+variable "envoy_gateway_listener_hostname" {
+  description = "Optional hostname constraint for the default HTTP listener. Null accepts HTTPRoutes for any hostname."
+  type        = string
+  default     = null
+}
+
+variable "envoy_gateway_allowed_routes_from" {
+  description = "Gateway API allowedRoutes namespace policy for the default listener. Valid values are Same, All, or Selector."
+  type        = string
+  default     = "All"
+
+  validation {
+    condition     = contains(["Same", "All", "Selector"], var.envoy_gateway_allowed_routes_from)
+    error_message = "envoy_gateway_allowed_routes_from must be Same, All, or Selector."
+  }
+}
+
+variable "envoy_gateway_controller_replicas" {
+  description = "Number of Envoy Gateway controller replicas."
+  type        = number
+  default     = 2
 }
 
 # =============================================================================
@@ -625,6 +734,12 @@ variable "external_dns_chart_version" {
   description = "External-DNS Helm chart version."
   type        = string
   default     = "~> 1.14"
+}
+
+variable "envoy_gateway_chart_version" {
+  description = "Envoy Gateway Helm chart version."
+  type        = string
+  default     = "v1.8.1"
 }
 
 variable "traefik_chart_version" {

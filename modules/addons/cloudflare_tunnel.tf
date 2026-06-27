@@ -19,6 +19,12 @@ locals {
       }
     ],
     [
+      for hostname in var.envoy_gateway_hostnames : {
+        hostname = hostname
+        service  = local.envoy_gateway_cloudflare_target
+      } if var.enable_envoy_gateway
+    ],
+    [
       {
         service = "http_status:404"
       }
