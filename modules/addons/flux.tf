@@ -36,6 +36,11 @@ resource "kubernetes_namespace_v1" "flux_system" {
   metadata {
     name = "flux-system"
   }
+
+  lifecycle {
+    # Flux labels its own namespace at runtime; Terraform should not remove those labels.
+    ignore_changes = [metadata[0].labels]
+  }
 }
 
 # ---------------------------------------------------------------------------
