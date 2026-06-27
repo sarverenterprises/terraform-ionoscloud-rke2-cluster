@@ -853,7 +853,7 @@ variable "cert_manager_chart_version" {
 variable "external_dns_chart_version" {
   description = "External-DNS Helm chart version."
   type        = string
-  default     = "~> 1.14"
+  default     = "1.21.1"
 }
 
 variable "envoy_gateway_chart_version" {

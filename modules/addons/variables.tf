@@ -590,7 +590,7 @@ variable "cert_manager_chart_version" {
 variable "external_dns_chart_version" {
   description = "External-DNS Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "1.14.5"
+  default     = "1.21.1"
 }
 
 variable "envoy_gateway_chart_version" {
