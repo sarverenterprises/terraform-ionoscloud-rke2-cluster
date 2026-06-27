@@ -223,6 +223,18 @@ variable "service_cidr" {
   default     = "10.43.0.0/16"
 }
 
+variable "node_dns_servers" {
+  description = "Optional DNS resolvers written into node bootstrap. When empty, the OS image/provider resolver configuration is left unchanged."
+  type        = list(string)
+  default     = []
+}
+
+variable "node_dns_search_domains" {
+  description = "Optional DNS search domains written into node /etc/resolv.conf. Empty keeps the static resolver file free of search domains."
+  type        = list(string)
+  default     = []
+}
+
 # =============================================================================
 # Tailscale
 # =============================================================================

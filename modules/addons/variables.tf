@@ -563,6 +563,18 @@ variable "cilium_chart_version" {
   default     = "1.19.1"
 }
 
+variable "cilium_dns_proxy_enable_transparent_mode" {
+  description = "Whether Cilium DNS proxy transparent mode is enabled. Pin this instead of inheriting chart-version defaults."
+  type        = bool
+  default     = false
+}
+
+variable "cilium_external_envoy_proxy" {
+  description = "Whether Cilium runs Envoy as a standalone DaemonSet for L7 policy. False keeps the embedded Envoy behavior used by rke2-primary."
+  type        = bool
+  default     = false
+}
+
 variable "longhorn_chart_version" {
   description = "Longhorn Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string

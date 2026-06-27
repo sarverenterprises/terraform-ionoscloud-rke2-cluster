@@ -1,4 +1,16 @@
 locals {
+  has_node_dns = length(var.node_dns_servers) > 0
+
+  node_dns_resolv_conf_lines = concat(
+    length(var.node_dns_search_domains) > 0 ? ["search ${join(" ", var.node_dns_search_domains)}"] : [],
+    [for server in var.node_dns_servers : "nameserver ${server}"],
+    ["options timeout:2 attempts:3"]
+  )
+
+  node_dns_resolv_conf_content = join("\n", local.node_dns_resolv_conf_lines)
+  node_dns_systemd_servers     = join(" ", var.node_dns_servers)
+  node_dns_systemd_domains     = length(var.node_dns_search_domains) > 0 ? join(" ", var.node_dns_search_domains) : "~."
+
   taint_args = join("\n", [
     for t in var.taints : "        - \"${t.key}=${t.value}:${t.effect}\""
   ])
@@ -87,6 +99,10 @@ locals {
         service_cidr                = var.service_cidr
         cluster_subnet_cidr         = var.cluster_subnet_cidr
         private_network_gateway     = var.private_network_gateway
+        has_node_dns                = local.has_node_dns
+        node_dns_systemd_servers    = local.node_dns_systemd_servers
+        node_dns_systemd_domains    = local.node_dns_systemd_domains
+        node_dns_resolv_conf        = local.node_dns_resolv_conf_content
         has_disabled_components     = local.has_disabled_components
         disabled_component_args     = local.disabled_component_args
         enable_etcd_backup          = var.enable_etcd_backup
@@ -119,6 +135,10 @@ locals {
         service_cidr                = var.service_cidr
         cluster_subnet_cidr         = var.cluster_subnet_cidr
         private_network_gateway     = var.private_network_gateway
+        has_node_dns                = local.has_node_dns
+        node_dns_systemd_servers    = local.node_dns_systemd_servers
+        node_dns_systemd_domains    = local.node_dns_systemd_domains
+        node_dns_resolv_conf        = local.node_dns_resolv_conf_content
         has_disabled_components     = local.has_disabled_components
         disabled_component_args     = local.disabled_component_args
         enable_etcd_backup          = var.enable_etcd_backup
@@ -132,20 +152,24 @@ locals {
         etcd_s3_folder              = var.etcd_s3_folder != null ? var.etcd_s3_folder : ""
       })
       : templatefile("${path.module}/templates/worker-init.yaml.tpl", {
-        rke2_version            = var.rke2_version
-        rke2_token              = var.rke2_token
-        control_plane_lb_ip     = var.control_plane_lb_ip
-        node_ip                 = var.private_ip_offset != null ? local.node_private_ips[index] : null
-        cluster_subnet_cidr     = var.cluster_subnet_cidr
-        has_labels              = local.has_labels
-        label_args              = local.label_args
-        has_taints              = local.has_taints
-        taint_args              = local.taint_args
-        longhorn_volume_size    = var.longhorn_volume_size
-        enable_tailscale        = var.enable_tailscale_nodes
-        tailscale_auth_key      = var.tailscale_auth_key != null ? var.tailscale_auth_key : ""
-        hostname                = "${var.pool_name}-${index + 1}"
-        private_network_gateway = var.private_network_gateway
+        rke2_version             = var.rke2_version
+        rke2_token               = var.rke2_token
+        control_plane_lb_ip      = var.control_plane_lb_ip
+        node_ip                  = var.private_ip_offset != null ? local.node_private_ips[index] : null
+        cluster_subnet_cidr      = var.cluster_subnet_cidr
+        has_labels               = local.has_labels
+        label_args               = local.label_args
+        has_taints               = local.has_taints
+        taint_args               = local.taint_args
+        longhorn_volume_size     = var.longhorn_volume_size
+        enable_tailscale         = var.enable_tailscale_nodes
+        tailscale_auth_key       = var.tailscale_auth_key != null ? var.tailscale_auth_key : ""
+        hostname                 = "${var.pool_name}-${index + 1}"
+        private_network_gateway  = var.private_network_gateway
+        has_node_dns             = local.has_node_dns
+        node_dns_systemd_servers = local.node_dns_systemd_servers
+        node_dns_systemd_domains = local.node_dns_systemd_domains
+        node_dns_resolv_conf     = local.node_dns_resolv_conf_content
       })
     )
   ]

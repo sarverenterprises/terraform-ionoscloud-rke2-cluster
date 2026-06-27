@@ -82,6 +82,8 @@ module "control_plane" {
   pod_cidr                     = var.pod_cidr
   service_cidr                 = var.service_cidr
   disabled_packaged_components = var.disabled_packaged_components
+  node_dns_servers             = var.node_dns_servers
+  node_dns_search_domains      = var.node_dns_search_domains
 
   # Security
   enable_tailscale_nodes = var.enable_tailscale_nodes
@@ -156,6 +158,8 @@ module "worker_pools" {
   first_cp_ip             = local.first_cp_private_ip
   cluster_subnet_cidr     = var.cluster_subnet_cidr
   private_network_gateway = local.private_network_gateway
+  node_dns_servers        = var.node_dns_servers
+  node_dns_search_domains = var.node_dns_search_domains
 
   # Security
   enable_tailscale_nodes = var.enable_tailscale_nodes
@@ -616,21 +620,23 @@ module "addons" {
   system_upgrade_controller_chart_version = var.system_upgrade_controller_chart_version
 
   # Chart versions
-  cilium_chart_version                 = var.cilium_chart_version
-  longhorn_chart_version               = var.longhorn_chart_version
-  cert_manager_chart_version           = var.cert_manager_chart_version
-  external_dns_chart_version           = var.external_dns_chart_version
-  envoy_gateway_chart_version          = var.envoy_gateway_chart_version
-  cloudnative_pg_chart_version         = var.cloudnative_pg_chart_version
-  external_secrets_chart_version       = var.external_secrets_chart_version
-  bitwarden_eso_provider_chart_version = var.bitwarden_eso_provider_chart_version
-  traefik_chart_version                = var.traefik_chart_version
-  flux_version                         = var.flux_version
-  cluster_autoscaler_chart_version     = var.cluster_autoscaler_chart_version
-  cluster_autoscaler_image_tag         = var.cluster_autoscaler_image_tag
-  argocd_chart_version                 = var.argocd_chart_version
-  argo_rollouts_chart_version          = var.argo_rollouts_chart_version
-  kube_prometheus_stack_chart_version  = var.kube_prometheus_stack_chart_version
+  cilium_chart_version                     = var.cilium_chart_version
+  cilium_dns_proxy_enable_transparent_mode = var.cilium_dns_proxy_enable_transparent_mode
+  cilium_external_envoy_proxy              = var.cilium_external_envoy_proxy
+  longhorn_chart_version                   = var.longhorn_chart_version
+  cert_manager_chart_version               = var.cert_manager_chart_version
+  external_dns_chart_version               = var.external_dns_chart_version
+  envoy_gateway_chart_version              = var.envoy_gateway_chart_version
+  cloudnative_pg_chart_version             = var.cloudnative_pg_chart_version
+  external_secrets_chart_version           = var.external_secrets_chart_version
+  bitwarden_eso_provider_chart_version     = var.bitwarden_eso_provider_chart_version
+  traefik_chart_version                    = var.traefik_chart_version
+  flux_version                             = var.flux_version
+  cluster_autoscaler_chart_version         = var.cluster_autoscaler_chart_version
+  cluster_autoscaler_image_tag             = var.cluster_autoscaler_image_tag
+  argocd_chart_version                     = var.argocd_chart_version
+  argo_rollouts_chart_version              = var.argo_rollouts_chart_version
+  kube_prometheus_stack_chart_version      = var.kube_prometheus_stack_chart_version
 
   depends_on = [null_resource.fetch_kubeconfig]
 }

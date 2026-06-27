@@ -117,6 +117,28 @@ variable "node_bootstrap_revision" {
   default     = "1"
 }
 
+variable "node_dns_servers" {
+  description = "Optional DNS resolvers written into node bootstrap. When empty, the OS image/provider resolver configuration is left unchanged."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for server in var.node_dns_servers : can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}$", server))])
+    error_message = "node_dns_servers must contain IPv4 resolver addresses."
+  }
+}
+
+variable "node_dns_search_domains" {
+  description = "Optional DNS search domains written into node /etc/resolv.conf. Empty keeps the static resolver file free of search domains."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for domain in var.node_dns_search_domains : can(regex("^[A-Za-z0-9_.-]+$", domain))])
+    error_message = "node_dns_search_domains must contain only DNS search-domain characters."
+  }
+}
+
 # =============================================================================
 # Networking
 # =============================================================================
@@ -802,6 +824,18 @@ variable "cilium_chart_version" {
   description = "Cilium Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
   default     = "1.19.1"
+}
+
+variable "cilium_dns_proxy_enable_transparent_mode" {
+  description = "Whether Cilium DNS proxy transparent mode is enabled. Pin this instead of inheriting chart-version defaults."
+  type        = bool
+  default     = false
+}
+
+variable "cilium_external_envoy_proxy" {
+  description = "Whether Cilium runs Envoy as a standalone DaemonSet for L7 policy. False keeps the embedded Envoy behavior used by rke2-primary."
+  type        = bool
+  default     = false
 }
 
 variable "longhorn_chart_version" {

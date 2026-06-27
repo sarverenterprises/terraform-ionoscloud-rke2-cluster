@@ -7,6 +7,33 @@ fqdn: ${hostname}
 manage_etc_hosts: true
 
 write_files:
+%{ if has_node_dns ~}
+  - path: /usr/local/sbin/rke2-node-dns.sh
+    owner: root:root
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      mkdir -p /etc/systemd/resolved.conf.d
+      cat >/etc/systemd/resolved.conf.d/10-rke2-node-dns.conf <<'EOF'
+      [Resolve]
+      DNS=${node_dns_systemd_servers}
+      Domains=${node_dns_systemd_domains}
+      EOF
+
+      if command -v systemctl >/dev/null 2>&1 \
+        && systemctl list-unit-files systemd-resolved.service >/dev/null 2>&1; then
+        systemctl restart systemd-resolved.service || true
+      fi
+
+      rm -f /etc/resolv.conf
+      cat >/etc/resolv.conf <<'EOF'
+      ${replace(node_dns_resolv_conf, "\n", "\n      ")}
+      EOF
+      chmod 0644 /etc/resolv.conf
+
+%{ endif ~}
   - path: /etc/rancher/rke2/config.yaml
     owner: root:root
     permissions: '0600'
@@ -24,6 +51,11 @@ ${taint_args}
 %{ endif ~}
 
 runcmd:
+%{ if has_node_dns ~}
+  # Pin node DNS before cloud-init installs RKE2, Tailscale, or pulls images.
+  - /usr/local/sbin/rke2-node-dns.sh
+
+%{ endif ~}
   # Block metadata API at host level before any services start (defense-in-depth).
   # Cilium network policy provides pod-level blocking after CNI deploys, but this
   # iptables rule covers the bootstrap window when Cilium is not yet running.

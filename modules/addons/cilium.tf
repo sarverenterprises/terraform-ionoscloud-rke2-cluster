@@ -58,6 +58,17 @@ resource "helm_release" "cilium" {
       # Keep kube-proxy replacement off until IONOS CCM/LB behavior is designed.
       kubeProxyReplacement = "false"
 
+      # Pin chart-version-sensitive DNS/L7 proxy defaults. Cilium 1.19 enables
+      # transparent DNS proxy and standalone Envoy by default on new installs;
+      # Abby keeps these aligned with rke2-primary until restrictive app egress
+      # policies are revalidated.
+      dnsProxy = {
+        enableTransparentMode = var.cilium_dns_proxy_enable_transparent_mode
+      }
+      envoy = {
+        enabled = var.cilium_external_envoy_proxy
+      }
+
       # Use localhost (RKE2's local proxy) instead of the LB IP.
       # RKE2 runs a local load-balancing proxy on every node at localhost:6443
       # that forwards to real API server endpoints. This avoids a bootstrap
