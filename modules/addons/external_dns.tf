@@ -45,7 +45,7 @@ resource "kubernetes_secret_v1" "cloudflare_api_token_external_dns" {
 locals {
   external_dns_sources = concat(
     ["service", "ingress"],
-    var.enable_envoy_gateway ? ["gateway-httproute"] : []
+    var.enable_envoy_gateway && !var.enable_cloudflare_tunnel ? ["gateway-httproute"] : []
   )
 }
 
