@@ -543,23 +543,33 @@ module "addons" {
   tailscale_node_auth_key = var.tailscale_node_auth_key
 
   # Add-on flags
-  enable_external_dns          = var.enable_external_dns
-  enable_cert_manager          = var.enable_cert_manager
-  enable_ingress               = var.enable_ingress
-  enable_envoy_gateway         = var.enable_envoy_gateway
-  enable_longhorn              = var.enable_longhorn
-  longhorn_rwx_mode            = var.longhorn_rwx_mode
-  longhorn_default_data_path   = var.longhorn_default_data_path
-  enable_cluster_autoscaler    = var.enable_cluster_autoscaler
-  autoscaler_rbac_level        = var.autoscaler_rbac_level
-  enable_flux                  = var.enable_flux
-  flux_deploy_key_mode         = var.flux_deploy_key_mode
-  enable_monitoring            = var.enable_monitoring
-  grafana_hostname             = var.grafana_hostname
-  enable_cloudnative_pg        = var.enable_cloudnative_pg
-  cloudnative_pg_namespace     = var.cloudnative_pg_namespace
-  cloudnative_pg_replica_count = var.cloudnative_pg_replica_count
-  enable_tailscale_operator    = var.enable_tailscale_operator
+  enable_external_dns                  = var.enable_external_dns
+  enable_cert_manager                  = var.enable_cert_manager
+  enable_ingress                       = var.enable_ingress
+  enable_envoy_gateway                 = var.enable_envoy_gateway
+  enable_longhorn                      = var.enable_longhorn
+  longhorn_rwx_mode                    = var.longhorn_rwx_mode
+  longhorn_default_data_path           = var.longhorn_default_data_path
+  enable_cluster_autoscaler            = var.enable_cluster_autoscaler
+  autoscaler_rbac_level                = var.autoscaler_rbac_level
+  enable_flux                          = var.enable_flux
+  flux_deploy_key_mode                 = var.flux_deploy_key_mode
+  enable_monitoring                    = var.enable_monitoring
+  grafana_hostname                     = var.grafana_hostname
+  enable_cloudnative_pg                = var.enable_cloudnative_pg
+  cloudnative_pg_namespace             = var.cloudnative_pg_namespace
+  cloudnative_pg_replica_count         = var.cloudnative_pg_replica_count
+  enable_external_secrets              = var.enable_external_secrets
+  enable_bitwarden_eso_provider        = var.enable_bitwarden_eso_provider
+  external_secrets_namespace           = var.external_secrets_namespace
+  external_secrets_replica_count       = var.external_secrets_replica_count
+  bitwarden_eso_provider_replica_count = var.bitwarden_eso_provider_replica_count
+  bitwarden_host                       = var.bitwarden_host
+  bitwarden_password                   = var.bitwarden_password
+  bitwarden_client_id                  = var.bitwarden_client_id
+  bitwarden_client_secret              = var.bitwarden_client_secret
+  bitwarden_app_id                     = var.bitwarden_app_id
+  enable_tailscale_operator            = var.enable_tailscale_operator
 
   # Cloudflare
   cloudflare_api_token = var.cloudflare_api_token
@@ -606,19 +616,21 @@ module "addons" {
   system_upgrade_controller_chart_version = var.system_upgrade_controller_chart_version
 
   # Chart versions
-  cilium_chart_version                = var.cilium_chart_version
-  longhorn_chart_version              = var.longhorn_chart_version
-  cert_manager_chart_version          = var.cert_manager_chart_version
-  external_dns_chart_version          = var.external_dns_chart_version
-  envoy_gateway_chart_version         = var.envoy_gateway_chart_version
-  cloudnative_pg_chart_version        = var.cloudnative_pg_chart_version
-  traefik_chart_version               = var.traefik_chart_version
-  flux_version                        = var.flux_version
-  cluster_autoscaler_chart_version    = var.cluster_autoscaler_chart_version
-  cluster_autoscaler_image_tag        = var.cluster_autoscaler_image_tag
-  argocd_chart_version                = var.argocd_chart_version
-  argo_rollouts_chart_version         = var.argo_rollouts_chart_version
-  kube_prometheus_stack_chart_version = var.kube_prometheus_stack_chart_version
+  cilium_chart_version                 = var.cilium_chart_version
+  longhorn_chart_version               = var.longhorn_chart_version
+  cert_manager_chart_version           = var.cert_manager_chart_version
+  external_dns_chart_version           = var.external_dns_chart_version
+  envoy_gateway_chart_version          = var.envoy_gateway_chart_version
+  cloudnative_pg_chart_version         = var.cloudnative_pg_chart_version
+  external_secrets_chart_version       = var.external_secrets_chart_version
+  bitwarden_eso_provider_chart_version = var.bitwarden_eso_provider_chart_version
+  traefik_chart_version                = var.traefik_chart_version
+  flux_version                         = var.flux_version
+  cluster_autoscaler_chart_version     = var.cluster_autoscaler_chart_version
+  cluster_autoscaler_image_tag         = var.cluster_autoscaler_image_tag
+  argocd_chart_version                 = var.argocd_chart_version
+  argo_rollouts_chart_version          = var.argo_rollouts_chart_version
+  kube_prometheus_stack_chart_version  = var.kube_prometheus_stack_chart_version
 
   depends_on = [null_resource.fetch_kubeconfig]
 }

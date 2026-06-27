@@ -254,6 +254,18 @@ variable "enable_cloudnative_pg" {
   default     = false
 }
 
+variable "enable_external_secrets" {
+  description = "Deploy External Secrets Operator and CRDs."
+  type        = bool
+  default     = false
+}
+
+variable "enable_bitwarden_eso_provider" {
+  description = "Deploy the Bitwarden webhook provider for External Secrets Operator."
+  type        = bool
+  default     = false
+}
+
 variable "enable_tailscale_operator" {
   description = "Deploy Tailscale Kubernetes operator."
   type        = bool
@@ -408,6 +420,58 @@ variable "cloudnative_pg_replica_count" {
   default     = 1
 }
 
+variable "external_secrets_namespace" {
+  description = "Namespace for External Secrets Operator and the Bitwarden provider."
+  type        = string
+  default     = "external-secrets"
+}
+
+variable "external_secrets_replica_count" {
+  description = "Replica count for External Secrets Operator controller, webhook, and cert-controller."
+  type        = number
+  default     = 2
+}
+
+variable "bitwarden_eso_provider_replica_count" {
+  description = "Replica count for the Bitwarden ESO provider."
+  type        = number
+  default     = 1
+}
+
+variable "bitwarden_host" {
+  description = "Bitwarden vault host used by the Bitwarden ESO provider."
+  type        = string
+  default     = "https://vault.bitwarden.com"
+}
+
+variable "bitwarden_password" {
+  description = "Bitwarden account password used by the Bitwarden ESO provider."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "bitwarden_client_id" {
+  description = "Bitwarden API client ID used by the Bitwarden ESO provider."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "bitwarden_client_secret" {
+  description = "Bitwarden API client secret used by the Bitwarden ESO provider."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "bitwarden_app_id" {
+  description = "Optional Bitwarden app ID used to identify the provider pod login client."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # =============================================================================
 # GitHub / Flux
 # =============================================================================
@@ -527,6 +591,18 @@ variable "cloudnative_pg_chart_version" {
   description = "CloudNativePG Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
   default     = "0.28.3"
+}
+
+variable "external_secrets_chart_version" {
+  description = "External Secrets Operator Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
+  type        = string
+  default     = "2.5.0"
+}
+
+variable "bitwarden_eso_provider_chart_version" {
+  description = "Bitwarden ESO provider Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
+  type        = string
+  default     = "1.2.0"
 }
 
 variable "traefik_chart_version" {
