@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added an optional Grafana Alloy add-on for cluster-level OTLP/log collection,
+  with LGTM credentials sourced from a Kubernetes Secret instead of inline chart
+  configuration.
 - Added an optional RKE2 CoreDNS `HelmChartConfig` override so clusters can
   forward public DNS queries to explicit upstream resolvers instead of pod
   `/etc/resolv.conf`, preventing inherited resolver/search-domain behavior from

@@ -259,6 +259,12 @@ variable "enable_monitoring" {
   default     = false
 }
 
+variable "enable_alloy" {
+  description = "Deploy Grafana Alloy as a cluster-level OTLP/log collector. Requires enable_monitoring=true."
+  type        = bool
+  default     = false
+}
+
 variable "enable_cloudnative_pg" {
   description = "Deploy the CloudNativePG operator and CRDs. PostgreSQL Cluster resources remain app-owned."
   type        = bool
@@ -528,6 +534,50 @@ variable "grafana_hostname" {
   default     = null
 }
 
+variable "alloy_lgtm_username" {
+  description = "Basic auth username for central LGTM endpoints used by Alloy."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "alloy_lgtm_password" {
+  description = "Basic auth password/token for central LGTM endpoints used by Alloy."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "alloy_lgtm_tenant_id" {
+  description = "Tenant ID label/header value for central Loki writes."
+  type        = string
+  default     = "1"
+}
+
+variable "alloy_loki_endpoint" {
+  description = "Loki push endpoint for Kubernetes pod logs."
+  type        = string
+  default     = "https://loki.lgtm.sarvent.cloud/loki/api/v1/push"
+}
+
+variable "alloy_loki_otlp_endpoint" {
+  description = "Loki OTLP/HTTP endpoint for application OTLP logs."
+  type        = string
+  default     = "https://loki.lgtm.sarvent.cloud"
+}
+
+variable "alloy_tempo_endpoint" {
+  description = "Tempo OTLP/HTTP endpoint for application traces."
+  type        = string
+  default     = "https://tempo.lgtm.sarvent.cloud"
+}
+
+variable "alloy_mimir_endpoint" {
+  description = "Mimir OTLP/HTTP endpoint for application metrics."
+  type        = string
+  default     = "https://mimir.lgtm.sarvent.cloud"
+}
+
 # =============================================================================
 # Argo CD
 # =============================================================================
@@ -668,6 +718,12 @@ variable "kube_prometheus_stack_chart_version" {
   description = "kube-prometheus-stack Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
   default     = "87.2.1"
+}
+
+variable "alloy_chart_version" {
+  description = "Grafana Alloy Helm chart version. Must be an exact version."
+  type        = string
+  default     = "1.10.0"
 }
 
 variable "system_upgrade_controller_chart_version" {

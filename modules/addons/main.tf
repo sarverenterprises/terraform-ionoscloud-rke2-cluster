@@ -13,6 +13,7 @@
 #   longhorn.tf         — Longhorn distributed storage
 #   flux.tf             — Flux CD bootstrap
 #   monitoring.tf       — kube-prometheus-stack
+#   alloy.tf            — Grafana Alloy OTLP/log collector
 #   tailscale.tf        — Tailscale Kubernetes operator
 #   cloudflare_tunnel.tf — Cloudflare Tunnel connector
 #
