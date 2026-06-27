@@ -465,7 +465,7 @@ variable "cloudflare_zone_id" {
 }
 
 variable "cloudflare_zone" {
-  description = "Cloudflare zone domain (e.g., 'example.com'). Required for external-dns domainFilter."
+  description = "Cloudflare zone domain (e.g., 'example.com'). Required for Cloudflare-managed resources."
   type        = string
   default     = null
 }
