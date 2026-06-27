@@ -6,7 +6,7 @@
 # instances — each filtered by a distinct annotation value.
 #
 #   external-dns-proxied  — annotationFilter: cloudflare-proxied=true
-#   external-dns-dnsonly  — annotationFilter: cloudflare-proxied!=true
+#   external-dns-dnsonly  — annotationFilter: cloudflare-proxied=false
 #
 # Both instances share a single Cloudflare API token Secret.
 #
@@ -133,10 +133,9 @@ resource "helm_release" "external_dns_dnsonly" {
       txtOwnerId = "${var.cluster_name}-dnsonly"
       sources    = local.external_dns_sources
       extraArgs = [
-        "--annotation-filter=external-dns.alpha.kubernetes.io/cloudflare-proxied!=true",
+        "--annotation-filter=external-dns.alpha.kubernetes.io/cloudflare-proxied=false",
       ]
-      # Manage all records NOT explicitly requesting proxy mode (!=true covers
-      # both absent annotation and cloudflare-proxied=false).
+      # Manage DNS-only records explicitly marked as not proxied.
     })
   ]
 
