@@ -578,13 +578,13 @@ variable "cilium_external_envoy_proxy" {
 variable "longhorn_chart_version" {
   description = "Longhorn Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "1.7.3"
+  default     = "1.8.2"
 }
 
 variable "cert_manager_chart_version" {
   description = "cert-manager Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "v1.16.5"
+  default     = "v1.20.3"
 }
 
 variable "external_dns_chart_version" {
@@ -608,7 +608,7 @@ variable "cloudnative_pg_chart_version" {
 variable "external_secrets_chart_version" {
   description = "External Secrets Operator Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "2.5.0"
+  default     = "2.7.0"
 }
 
 variable "bitwarden_eso_provider_chart_version" {
@@ -626,7 +626,7 @@ variable "traefik_chart_version" {
 variable "flux_version" {
   description = "Flux CD version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "2.4.1"
+  default     = "2.18.4"
 }
 
 variable "cluster_autoscaler_chart_version" {
@@ -656,7 +656,7 @@ variable "argo_rollouts_chart_version" {
 variable "kube_prometheus_stack_chart_version" {
   description = "kube-prometheus-stack Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "67.11.0"
+  default     = "87.2.1"
 }
 
 variable "system_upgrade_controller_chart_version" {
@@ -668,5 +668,5 @@ variable "system_upgrade_controller_chart_version" {
 variable "tailscale_operator_chart_version" {
   description = "Tailscale Kubernetes Operator Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "1.76.6"
+  default     = "1.98.4"
 }

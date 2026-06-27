@@ -841,13 +841,13 @@ variable "cilium_external_envoy_proxy" {
 variable "longhorn_chart_version" {
   description = "Longhorn Helm chart version."
   type        = string
-  default     = "~> 1.7"
+  default     = "1.8.2"
 }
 
 variable "cert_manager_chart_version" {
   description = "cert-manager Helm chart version."
   type        = string
-  default     = "~> 1.16"
+  default     = "v1.20.3"
 }
 
 variable "external_dns_chart_version" {
@@ -871,7 +871,7 @@ variable "cloudnative_pg_chart_version" {
 variable "external_secrets_chart_version" {
   description = "External Secrets Operator Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
-  default     = "2.5.0"
+  default     = "2.7.0"
 }
 
 variable "bitwarden_eso_provider_chart_version" {
@@ -889,7 +889,7 @@ variable "traefik_chart_version" {
 variable "flux_version" {
   description = "Flux CD version for flux_bootstrap_git."
   type        = string
-  default     = "~> 2.4"
+  default     = "2.18.4"
 }
 
 variable "cluster_autoscaler_chart_version" {
@@ -907,7 +907,7 @@ variable "cluster_autoscaler_image_tag" {
 variable "kube_prometheus_stack_chart_version" {
   description = "kube-prometheus-stack Helm chart version."
   type        = string
-  default     = "~> 67.0"
+  default     = "87.2.1"
 }
 
 variable "argocd_chart_version" {
