@@ -248,6 +248,12 @@ variable "enable_monitoring" {
   default     = false
 }
 
+variable "enable_cloudnative_pg" {
+  description = "Deploy the CloudNativePG operator and CRDs. PostgreSQL Cluster resources remain app-owned."
+  type        = bool
+  default     = false
+}
+
 variable "enable_tailscale_operator" {
   description = "Deploy Tailscale Kubernetes operator."
   type        = bool
@@ -387,6 +393,22 @@ variable "envoy_gateway_controller_replicas" {
 }
 
 # =============================================================================
+# CloudNativePG
+# =============================================================================
+
+variable "cloudnative_pg_namespace" {
+  description = "Namespace for the CloudNativePG operator."
+  type        = string
+  default     = "cnpg-system"
+}
+
+variable "cloudnative_pg_replica_count" {
+  description = "CloudNativePG operator replica count."
+  type        = number
+  default     = 1
+}
+
+# =============================================================================
 # GitHub / Flux
 # =============================================================================
 
@@ -499,6 +521,12 @@ variable "envoy_gateway_chart_version" {
   description = "Envoy Gateway Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
   type        = string
   default     = "v1.8.1"
+}
+
+variable "cloudnative_pg_chart_version" {
+  description = "CloudNativePG Helm chart version. Must be an exact version — Helm provider v3 does not support constraint expressions."
+  type        = string
+  default     = "0.28.3"
 }
 
 variable "traefik_chart_version" {
