@@ -151,6 +151,12 @@ variable "longhorn_rwx_mode" {
   default     = "builtin"
 }
 
+variable "longhorn_rwx_nfs_options" {
+  description = "NFS mount options for the built-in Longhorn RWX StorageClass. Use vers=4.0 only with Longhorn versions that support NFSv4.0 exports."
+  type        = string
+  default     = "vers=4.1,noresvport,softerr,timeo=600,retrans=5"
+}
+
 # =============================================================================
 # Tailscale
 # =============================================================================

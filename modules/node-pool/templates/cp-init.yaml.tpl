@@ -34,6 +34,41 @@ write_files:
       chmod 0644 /etc/resolv.conf
 
 %{ endif ~}
+  - path: /usr/local/sbin/rke2-longhorn-host-prereqs.sh
+    owner: root:root
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      export DEBIAN_FRONTEND=noninteractive
+      for attempt in 1 2 3 4 5; do
+        if apt-get update && apt-get install -y nfs-common open-iscsi; then
+          break
+        fi
+        if [ "$attempt" -eq 5 ]; then
+          echo "FATAL: Longhorn host prerequisite package install failed after 5 attempts" >&2
+          exit 1
+        fi
+        echo "Longhorn host prerequisite install attempt $attempt failed; retrying in $((attempt * 10))s..." >&2
+        sleep $((attempt * 10))
+      done
+
+      modprobe iscsi_tcp 2>/dev/null || true
+      systemctl enable --now iscsid.service 2>/dev/null || true
+
+      # Longhorn volumes can appear as /dev/sd* devices; keep multipathd from
+      # claiming them if multipath-tools is present or later installed.
+      cat >/etc/multipath.conf <<'EOF'
+      blacklist {
+          devnode "^sd[a-z0-9]+"
+      }
+      EOF
+
+      if systemctl list-unit-files multipathd.service >/dev/null 2>&1; then
+        systemctl restart multipathd.service 2>/dev/null || true
+      fi
+
   # ---------------------------------------------------------------------------
   # etcd orphan-recovery script
   #
@@ -136,6 +171,7 @@ runcmd:
   # Longhorn uses node-local OS disk storage by default when no dedicated data
   # volume is attached.
   - mkdir -p /var/lib/longhorn
+  - /usr/local/sbin/rke2-longhorn-host-prereqs.sh
 
 %{ if enable_tailscale ~}
   # Enroll in Tailscale before private-NIC bootstrap gates. Do not advertise

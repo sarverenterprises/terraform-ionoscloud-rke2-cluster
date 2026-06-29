@@ -113,7 +113,7 @@ resource "kubernetes_manifest" "longhorn_sc_rwx" {
       numberOfReplicas = tostring(var.longhorn_default_replicas)
       dataLocality     = "disabled"
       accessMode       = "ReadWriteMany"
-      nfsOptions       = "vers=4.1,noresvport,softerr,timeo=600,retrans=5"
+      nfsOptions       = var.longhorn_rwx_nfs_options
     }
   }
 

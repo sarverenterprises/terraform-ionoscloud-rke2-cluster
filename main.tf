@@ -554,6 +554,7 @@ module "addons" {
   enable_envoy_gateway                 = var.enable_envoy_gateway
   enable_longhorn                      = var.enable_longhorn
   longhorn_rwx_mode                    = var.longhorn_rwx_mode
+  longhorn_rwx_nfs_options             = var.longhorn_rwx_nfs_options
   longhorn_default_data_path           = var.longhorn_default_data_path
   enable_cluster_autoscaler            = var.enable_cluster_autoscaler
   autoscaler_rbac_level                = var.autoscaler_rbac_level

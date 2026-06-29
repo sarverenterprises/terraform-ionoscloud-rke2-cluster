@@ -382,6 +382,12 @@ variable "longhorn_rwx_mode" {
   }
 }
 
+variable "longhorn_rwx_nfs_options" {
+  description = "NFS mount options for the built-in Longhorn RWX StorageClass. Use vers=4.0 only with Longhorn versions that support NFSv4.0 exports."
+  type        = string
+  default     = "vers=4.1,noresvport,softerr,timeo=600,retrans=5"
+}
+
 variable "longhorn_default_data_path" {
   description = "Longhorn default data path for node-local storage. Use /var/lib/longhorn for OS-disk folder-backed storage; use /mnt/longhorn only when dedicated data volumes are mounted there."
   type        = string
