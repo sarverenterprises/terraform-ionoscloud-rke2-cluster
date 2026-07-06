@@ -220,7 +220,19 @@ resource "helm_release" "alloy" {
           }
         ]
         mounts = {
-          varlog = true
+          # Pod log collection uses loki.source.kubernetes, which tails through
+          # the Kubernetes API and does not require host /var/log access.
+          varlog = false
+        }
+        securityContext = {
+          allowPrivilegeEscalation = false
+          readOnlyRootFilesystem   = true
+          runAsGroup               = 473
+          runAsNonRoot             = true
+          runAsUser                = 473
+          capabilities = {
+            drop = ["ALL"]
+          }
         }
         extraPorts = [
           {
@@ -240,6 +252,18 @@ resource "helm_release" "alloy" {
 
       controller = {
         type = "daemonset"
+      }
+
+      global = {
+        podSecurityContext = {
+          fsGroup      = 473
+          runAsGroup   = 473
+          runAsNonRoot = true
+          runAsUser    = 473
+          seccompProfile = {
+            type = "RuntimeDefault"
+          }
+        }
       }
 
       service = {
