@@ -117,6 +117,34 @@ resource "helm_release" "kube_prometheus_stack" {
           }
         }
       }
+
+      prometheus-node-exporter = {
+        hostNetwork = false
+        hostPID     = false
+        hostIPC     = false
+
+        hostRootFsMount = {
+          enabled = false
+        }
+
+        securityContext = {
+          fsGroup      = 65534
+          runAsGroup   = 65534
+          runAsNonRoot = true
+          runAsUser    = 65534
+          seccompProfile = {
+            type = "RuntimeDefault"
+          }
+        }
+
+        containerSecurityContext = {
+          allowPrivilegeEscalation = false
+          readOnlyRootFilesystem   = true
+          capabilities = {
+            drop = ["ALL"]
+          }
+        }
+      }
     })
   ]
 

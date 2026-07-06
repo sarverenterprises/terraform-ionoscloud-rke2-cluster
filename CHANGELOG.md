@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Hardened the monitoring add-ons by removing node-exporter's host network,
+  host PID namespace, and root filesystem mount, and by removing Alloy's
+  host `/var/log` mount when pod logs are collected through the Kubernetes API.
 - Added an optional Grafana Alloy add-on for cluster-level OTLP/log collection,
   with LGTM credentials sourced from a Kubernetes Secret instead of inline chart
   configuration.
