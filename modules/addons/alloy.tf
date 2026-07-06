@@ -223,6 +223,12 @@ resource "helm_release" "alloy" {
           # Pod log collection uses loki.source.kubernetes, which tails through
           # the Kubernetes API and does not require host /var/log access.
           varlog = false
+          extra = [
+            {
+              name      = "alloy-storage"
+              mountPath = "/tmp/alloy"
+            }
+          ]
         }
         securityContext = {
           allowPrivilegeEscalation = false
@@ -252,6 +258,14 @@ resource "helm_release" "alloy" {
 
       controller = {
         type = "daemonset"
+        volumes = {
+          extra = [
+            {
+              name     = "alloy-storage"
+              emptyDir = {}
+            }
+          ]
+        }
       }
 
       global = {
