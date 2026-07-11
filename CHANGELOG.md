@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added an opt-in direct Envoy ingress path backed by one reserved IONOS IPv4,
+  one Network Load Balancer, and one TCP forwarding rule. The Kubernetes side
+  adds a hostname-scoped HTTPS listener and a separate NodePort Service while
+  preserving the existing Cloudflare Tunnel HTTP listener and ClusterIP.
+- Added a staged DNS publication switch so operators can validate the NLB with
+  SNI before moving an ExternalDNS-managed hostname away from a Tunnel CNAME.
 - Hardened the monitoring add-ons by removing node-exporter's host network,
   host PID namespace, and root filesystem mount, and by removing Alloy's
   host `/var/log` mount when pod logs are collected through the Kubernetes API.

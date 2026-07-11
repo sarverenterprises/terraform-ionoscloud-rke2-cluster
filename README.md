@@ -10,7 +10,8 @@ layers are IONOS-specific:
 - IONOS Cube servers via `ionoscloud_cube_server`
 - deterministic private NIC IPs for RKE2 bootstrap
 - public NIC firewall rules for optional SSH/API/Tailscale direct-peer access
-- no provider load balancer, no provider CCM, no provider CSI, no autoscaler
+- optional Terraform-managed Network Load Balancer for direct Envoy ingress
+- no provider CCM, no provider CSI, no autoscaler
 
 ## Current Scope
 
@@ -25,13 +26,33 @@ Supported:
 - Longhorn on OS disks or optional attached IONOS volumes
 - ExternalDNS, cert-manager, Flux, monitoring, and Tailscale operator
 - Cloudflare Tunnel based ingress outside provider load balancers
+- Optional direct Envoy HTTPS ingress through one Terraform-managed IONOS NLB
 
 Not yet supported:
 
 - IONOS CCM
 - IONOS CSI
 - Cluster Autoscaler
-- IONOS managed load balancers for Kubernetes Services
+- Automatic IONOS load balancers created from Kubernetes `LoadBalancer` Services
+
+## Optional Direct Envoy NLB
+
+`enable_direct_envoy_nlb` creates one reserved public IPv4, one IONOS Network
+Load Balancer, and one TCP/443 forwarding rule targeting the fixed
+`direct_envoy_node_port` on every worker private IP. It does not install an
+IONOS cloud-controller manager and does not alter node bootstrap configuration.
+
+The add-ons module can independently add a hostname-scoped Envoy HTTPS
+listener, cert-manager `Certificate`, and a separate NodePort Service selecting
+the existing Envoy data plane. The existing HTTP listener and ClusterIP used by
+Cloudflare Tunnel remain unchanged.
+
+Keep `direct_envoy_publish_dns = false` for initial deployment. Validate TLS,
+NodePort endpoints, NLB health, and a large upload using the NLB IP with the
+intended SNI hostname. Enable DNS publication only during a separately reviewed
+cutover after removing the hostname from any conflicting Tunnel CNAME
+advertisement. ExternalDNS `upsert-only` cannot delete a stale CNAME; production
+record deletion remains a human operation.
 
 ## Provider Auth
 

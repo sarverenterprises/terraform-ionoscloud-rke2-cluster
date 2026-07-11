@@ -590,6 +590,76 @@ variable "envoy_gateway_controller_replicas" {
   default     = 2
 }
 
+variable "enable_direct_envoy_nlb" {
+  description = "Create one public IONOS NLB and an additive Envoy HTTPS NodePort path. Disabled by default and does not modify the Cloudflare Tunnel path."
+  type        = bool
+  default     = false
+}
+
+variable "direct_envoy_hostname" {
+  description = "Hostname served by the direct IONOS NLB HTTPS listener, for example registry.sarvent.cloud."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.direct_envoy_hostname == null || can(regex("^[A-Za-z0-9.-]+$", var.direct_envoy_hostname))
+    error_message = "direct_envoy_hostname must be null or a valid hostname."
+  }
+}
+
+variable "direct_envoy_publish_dns" {
+  description = "Publish the direct hostname through ExternalDNS. Keep false during NLB canary testing and enable only for the DNS cutover."
+  type        = bool
+  default     = false
+}
+
+variable "direct_envoy_node_port" {
+  description = "Fixed worker NodePort targeted by the direct IONOS NLB."
+  type        = number
+  default     = 30443
+
+  validation {
+    condition     = var.direct_envoy_node_port >= 30000 && var.direct_envoy_node_port <= 32767
+    error_message = "direct_envoy_node_port must be in the default Kubernetes NodePort range 30000-32767."
+  }
+}
+
+variable "direct_envoy_tls_secret_name" {
+  description = "TLS Secret created by cert-manager and referenced by the additive Envoy HTTPS listener."
+  type        = string
+  default     = "direct-envoy-tls"
+}
+
+variable "direct_envoy_nlb_client_timeout_ms" {
+  description = "IONOS NLB client-side inactivity timeout in milliseconds."
+  type        = number
+  default     = 3600000
+}
+
+variable "direct_envoy_nlb_target_timeout_ms" {
+  description = "IONOS NLB target-side inactivity timeout in milliseconds."
+  type        = number
+  default     = 3600000
+}
+
+variable "direct_envoy_nlb_connect_timeout_ms" {
+  description = "IONOS NLB target connection timeout in milliseconds."
+  type        = number
+  default     = 10000
+}
+
+variable "direct_envoy_nlb_retries" {
+  description = "IONOS NLB connection retries before a target is considered unavailable."
+  type        = number
+  default     = 3
+}
+
+variable "direct_envoy_nlb_health_check_interval_ms" {
+  description = "Interval between IONOS NLB TCP health checks in milliseconds."
+  type        = number
+  default     = 5000
+}
+
 # =============================================================================
 # CloudNativePG
 # =============================================================================
