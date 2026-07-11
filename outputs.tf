@@ -76,3 +76,18 @@ output "argocd_admin_password_hint" {
   description = "kubectl command to retrieve the Argo CD initial admin password. Only set when enable_argocd=true."
   value       = module.addons.argocd_admin_password_hint
 }
+
+output "direct_envoy_nlb_ip" {
+  description = "Reserved public IPv4 of the optional direct Envoy IONOS NLB."
+  value       = var.enable_direct_envoy_nlb ? ionoscloud_ipblock.direct_envoy_ingress[0].ips[0] : null
+}
+
+output "direct_envoy_nlb_id" {
+  description = "ID of the optional direct Envoy IONOS Network Load Balancer."
+  value       = var.enable_direct_envoy_nlb ? ionoscloud_networkloadbalancer.direct_envoy_ingress[0].id : null
+}
+
+output "direct_envoy_nlb_forwarding_rule_id" {
+  description = "ID of the optional direct Envoy TCP/443 forwarding rule."
+  value       = var.enable_direct_envoy_nlb ? ionoscloud_networkloadbalancer_forwardingrule.direct_envoy_https[0].id : null
+}

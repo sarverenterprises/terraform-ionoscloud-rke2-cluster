@@ -21,6 +21,54 @@ locals {
     : {}
   )
 
+  direct_envoy_external_dns_annotations = var.direct_envoy_publish_dns ? {
+    "external-dns.alpha.kubernetes.io/hostname"           = var.direct_envoy_hostname
+    "external-dns.alpha.kubernetes.io/target"             = var.direct_envoy_nlb_ip
+    "external-dns.alpha.kubernetes.io/cloudflare-proxied" = "false"
+  } : {}
+
+  direct_envoy_manifests = slice([
+    {
+      apiVersion = "cert-manager.io/v1"
+      kind       = "Certificate"
+      metadata = {
+        name      = var.direct_envoy_tls_secret_name
+        namespace = var.envoy_gateway_namespace
+      }
+      spec = {
+        secretName = var.direct_envoy_tls_secret_name
+        dnsNames   = [var.direct_envoy_hostname]
+        issuerRef = {
+          name = "letsencrypt-prod"
+          kind = "ClusterIssuer"
+        }
+      }
+    },
+    {
+      apiVersion = "v1"
+      kind       = "Service"
+      metadata = {
+        name        = "${var.envoy_gateway_service_name}-direct"
+        namespace   = var.envoy_gateway_namespace
+        annotations = local.direct_envoy_external_dns_annotations
+      }
+      spec = {
+        type = "NodePort"
+        selector = {
+          "gateway.envoyproxy.io/owning-gateway-name"      = var.envoy_gateway_name
+          "gateway.envoyproxy.io/owning-gateway-namespace" = var.envoy_gateway_namespace
+        }
+        ports = [{
+          name       = "https"
+          protocol   = "TCP"
+          port       = 443
+          targetPort = 10443
+          nodePort   = var.direct_envoy_node_port
+        }]
+      }
+    }
+  ], 0, var.enable_direct_envoy_nlb ? 2 : 0)
+
   envoy_gateway_manifests = [
     {
       apiVersion = "gateway.envoyproxy.io/v1alpha1"
@@ -75,7 +123,7 @@ locals {
       }
       spec = {
         gatewayClassName = var.envoy_gateway_class_name
-        listeners = [
+        listeners = concat([
           merge(
             {
               name     = "http"
@@ -89,14 +137,53 @@ locals {
             },
             var.envoy_gateway_listener_hostname != null ? { hostname = var.envoy_gateway_listener_hostname } : {}
           )
-        ]
+          ], var.enable_direct_envoy_nlb ? [{
+            name     = "https-direct"
+            protocol = "HTTPS"
+            port     = 443
+            hostname = var.direct_envoy_hostname
+            tls = {
+              mode = "Terminate"
+              certificateRefs = [{
+                kind = "Secret"
+                name = var.direct_envoy_tls_secret_name
+              }]
+            }
+            allowedRoutes = {
+              namespaces = {
+                from = var.envoy_gateway_allowed_routes_from
+              }
+            }
+        }] : [])
       }
     }
   ]
 
+  envoy_gateway_all_manifests = concat(local.envoy_gateway_manifests, local.direct_envoy_manifests)
+
   envoy_gateway_manifest_yaml = join("\n---\n", [
-    for manifest in local.envoy_gateway_manifests : yamlencode(manifest)
+    for manifest in local.envoy_gateway_all_manifests : yamlencode(manifest)
   ])
+}
+
+check "direct_envoy_prerequisites" {
+  assert {
+    condition = !var.enable_direct_envoy_nlb || (
+      var.enable_envoy_gateway &&
+      var.enable_cert_manager &&
+      var.direct_envoy_hostname != null
+    )
+    error_message = "enable_direct_envoy_nlb in add-ons requires enable_envoy_gateway, enable_cert_manager, and direct_envoy_hostname."
+  }
+
+  assert {
+    condition = !var.direct_envoy_publish_dns || (
+      var.enable_direct_envoy_nlb &&
+      var.enable_external_dns &&
+      var.direct_envoy_nlb_ip != null
+    )
+    error_message = "direct_envoy_publish_dns requires the direct Envoy add-on, ExternalDNS, and a non-null direct_envoy_nlb_ip."
+  }
 }
 
 resource "kubernetes_namespace_v1" "envoy_gateway" {
@@ -174,9 +261,9 @@ resource "null_resource" "envoy_gateway_bootstrap" {
 }
 
 resource "kubernetes_manifest" "envoy_gateway_bootstrap" {
-  count = var.enable_envoy_gateway && var.kubeconfig_path == null ? length(local.envoy_gateway_manifests) : 0
+  count = var.enable_envoy_gateway && var.kubeconfig_path == null ? length(local.envoy_gateway_all_manifests) : 0
 
-  manifest = local.envoy_gateway_manifests[count.index]
+  manifest = local.envoy_gateway_all_manifests[count.index]
 
   depends_on = [
     helm_release.envoy_gateway,

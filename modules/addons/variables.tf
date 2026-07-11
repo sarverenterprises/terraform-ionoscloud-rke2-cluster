@@ -427,6 +427,52 @@ variable "envoy_gateway_controller_replicas" {
   default     = 2
 }
 
+variable "enable_direct_envoy_nlb" {
+  description = "Add an HTTPS listener and separate NodePort Service for a direct IONOS NLB path."
+  type        = bool
+  default     = false
+}
+
+variable "direct_envoy_hostname" {
+  description = "Hostname accepted by the direct Envoy HTTPS listener."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.direct_envoy_hostname == null || can(regex("^[A-Za-z0-9.-]+$", var.direct_envoy_hostname))
+    error_message = "direct_envoy_hostname must be null or a valid hostname."
+  }
+}
+
+variable "direct_envoy_node_port" {
+  description = "Fixed NodePort targeted by the IONOS NLB."
+  type        = number
+  default     = 30443
+}
+
+variable "direct_envoy_tls_secret_name" {
+  description = "TLS Secret created in the Envoy Gateway namespace."
+  type        = string
+  default     = "direct-envoy-tls"
+}
+
+variable "direct_envoy_nlb_ip" {
+  description = "Reserved public IP advertised by ExternalDNS for the direct hostname."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.direct_envoy_nlb_ip == null || can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}$", var.direct_envoy_nlb_ip))
+    error_message = "direct_envoy_nlb_ip must be null or an IPv4 address."
+  }
+}
+
+variable "direct_envoy_publish_dns" {
+  description = "Annotate the direct NodePort Service for ExternalDNS publication. Disabled for canary testing by default."
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # CloudNativePG
 # =============================================================================

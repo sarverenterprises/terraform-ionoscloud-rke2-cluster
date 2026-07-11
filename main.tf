@@ -599,6 +599,18 @@ module "addons" {
   envoy_gateway_listener_hostname   = var.envoy_gateway_listener_hostname
   envoy_gateway_allowed_routes_from = var.envoy_gateway_allowed_routes_from
   envoy_gateway_controller_replicas = var.envoy_gateway_controller_replicas
+  # Base and add-ons may be managed by separate states. Only enable the
+  # Kubernetes half here when this state also owns its prerequisites.
+  enable_direct_envoy_nlb = (
+    var.enable_direct_envoy_nlb &&
+    var.enable_envoy_gateway &&
+    var.enable_cert_manager
+  )
+  direct_envoy_hostname        = var.direct_envoy_hostname
+  direct_envoy_node_port       = var.direct_envoy_node_port
+  direct_envoy_tls_secret_name = var.direct_envoy_tls_secret_name
+  direct_envoy_nlb_ip          = var.enable_direct_envoy_nlb ? ionoscloud_ipblock.direct_envoy_ingress[0].ips[0] : null
+  direct_envoy_publish_dns     = var.direct_envoy_publish_dns
 
   # GitHub / Flux
   github_token     = var.github_token
