@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Moved direct NLB DNS annotations from the traffic-serving NodePort to a
+  dedicated ClusterIP marker Service so ExternalDNS reliably publishes the
+  DNS-only A record while the NodePort remains unchanged.
 - Assigned the direct Envoy NLB a target-side private IP from
   `cluster_subnet_cidr` so it can reach statically addressed RKE2 nodes when the
   IONOS LAN's provider-computed subnet differs.
