@@ -48,9 +48,8 @@ locals {
       apiVersion = "v1"
       kind       = "Service"
       metadata = {
-        name        = "${var.envoy_gateway_service_name}-direct"
-        namespace   = var.envoy_gateway_namespace
-        annotations = local.direct_envoy_external_dns_annotations
+        name      = "${var.envoy_gateway_service_name}-direct"
+        namespace = var.envoy_gateway_namespace
       }
       spec = {
         type = "NodePort"
@@ -66,8 +65,29 @@ locals {
           nodePort   = var.direct_envoy_node_port
         }]
       }
+    },
+    {
+      # ExternalDNS intentionally ignores some NodePort Services even when a
+      # target annotation is present. Keep DNS ownership on a separate
+      # ClusterIP marker while the NodePort remains dedicated to NLB traffic.
+      apiVersion = "v1"
+      kind       = "Service"
+      metadata = {
+        name        = "${var.envoy_gateway_service_name}-direct-dns"
+        namespace   = var.envoy_gateway_namespace
+        annotations = local.direct_envoy_external_dns_annotations
+      }
+      spec = {
+        type = "ClusterIP"
+        ports = [{
+          name       = "https"
+          protocol   = "TCP"
+          port       = 443
+          targetPort = 443
+        }]
+      }
     }
-  ], 0, var.enable_direct_envoy_nlb ? 2 : 0)
+  ], 0, var.enable_direct_envoy_nlb ? (var.direct_envoy_publish_dns ? 3 : 2) : 0)
 
   envoy_gateway_manifests = [
     {
