@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Assigned the direct Envoy NLB a target-side private IP from
+  `cluster_subnet_cidr` so it can reach statically addressed RKE2 nodes when the
+  IONOS LAN's provider-computed subnet differs.
 - Expanded direct Envoy NLB targets to every control-plane and worker private
   IP so the Kubernetes NodePort is reachable through every cluster host.
 - Added an opt-in direct Envoy ingress path backed by one reserved IONOS IPv4,

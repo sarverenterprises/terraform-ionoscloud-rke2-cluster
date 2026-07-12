@@ -32,6 +32,13 @@ resource "ionoscloud_networkloadbalancer" "direct_envoy_ingress" {
   target_lan    = module.networking.private_lan_id
   ips           = [ionoscloud_ipblock.direct_envoy_ingress[0].ips[0]]
 
+  # IONOS otherwise auto-assigns an address from the LAN's provider-computed
+  # subnet, which may not match the explicit RFC1918 addresses assigned to RKE2
+  # nodes. Keep the NLB's target-side address in the same subnet as every node.
+  lb_private_ips = [
+    "${cidrhost(var.cluster_subnet_cidr, 225)}/${split("/", var.cluster_subnet_cidr)[1]}"
+  ]
+
   # Keep the lowest-cost configuration: no flow logs or central logging.
   central_logging = false
 }
