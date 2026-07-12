@@ -2,14 +2,17 @@
 # Optional direct Envoy ingress
 #
 # This is deliberately independent of the Kubernetes cloud-controller manager.
-# The IONOS NLB forwards TCP/443 to a fixed NodePort on every worker's private
-# address; the existing Envoy Gateway data plane terminates TLS in-cluster.
+# The IONOS NLB forwards TCP/443 to a fixed NodePort on every cluster node's
+# private address; the existing Envoy Gateway data plane terminates TLS
+# in-cluster. Kubernetes NodePort makes the endpoint available on control-plane
+# and worker nodes unless a cluster explicitly restricts kube-proxy behavior.
 # =============================================================================
 
 locals {
-  direct_envoy_worker_ips = flatten([
-    for pool in module.worker_pools : pool.private_ips
-  ])
+  direct_envoy_node_ips = concat(
+    module.control_plane.private_ips,
+    flatten([for pool in module.worker_pools : pool.private_ips])
+  )
 }
 
 resource "ionoscloud_ipblock" "direct_envoy_ingress" {
@@ -54,7 +57,7 @@ resource "ionoscloud_networkloadbalancer_forwardingrule" "direct_envoy_https" {
   }
 
   dynamic "targets" {
-    for_each = toset(local.direct_envoy_worker_ips)
+    for_each = toset(local.direct_envoy_node_ips)
     content {
       ip     = targets.value
       port   = var.direct_envoy_node_port
@@ -70,8 +73,8 @@ resource "ionoscloud_networkloadbalancer_forwardingrule" "direct_envoy_https" {
 
   lifecycle {
     precondition {
-      condition     = length(local.direct_envoy_worker_ips) > 0
-      error_message = "enable_direct_envoy_nlb requires at least one worker node target."
+      condition     = length(local.direct_envoy_node_ips) > 0
+      error_message = "enable_direct_envoy_nlb requires at least one cluster node target."
     }
   }
 }

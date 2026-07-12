@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Expanded direct Envoy NLB targets to every control-plane and worker private
+  IP so the Kubernetes NodePort is reachable through every cluster host.
 - Added an opt-in direct Envoy ingress path backed by one reserved IONOS IPv4,
   one Network Load Balancer, and one TCP forwarding rule. The Kubernetes side
   adds a hostname-scoped HTTPS listener and a separate NodePort Service while
