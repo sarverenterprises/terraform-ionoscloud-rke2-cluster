@@ -39,7 +39,7 @@ Not yet supported:
 
 `enable_direct_envoy_nlb` creates one reserved public IPv4, one IONOS Network
 Load Balancer, and one TCP/443 forwarding rule targeting the fixed
-`direct_envoy_node_port` on every worker private IP. It does not install an
+`direct_envoy_node_port` on every control-plane and worker private IP. It does not install an
 IONOS cloud-controller manager and does not alter node bootstrap configuration.
 
 The add-ons module can independently add a hostname-scoped Envoy HTTPS
