@@ -41,6 +41,8 @@ Not yet supported:
 Load Balancer, and one TCP/443 forwarding rule targeting the fixed
 `direct_envoy_node_port` on every control-plane and worker private IP. It does not install an
 IONOS cloud-controller manager and does not alter node bootstrap configuration.
+The NLB target-side address is explicitly allocated from `cluster_subnet_cidr`
+to match the static node addressing rather than relying on IONOS LAN defaults.
 
 The add-ons module can independently add a hostname-scoped Envoy HTTPS
 listener, cert-manager `Certificate`, and a separate NodePort Service selecting
