@@ -27,7 +27,7 @@ run "control_plane_split_dns" {
     enable_tailscale_nodes            = true
     tailscale_auth_key                = "tskey-auth-test"
     enable_tailscale_split_dns        = true
-    tailscale_magic_dns_domain        = "tilapia-turtle.ts.net"
+    tailscale_magic_dns_domain        = "example-tailnet.invalid"
     tailscale_split_dns_extra_domains = ["~ts.net"]
   }
 
@@ -42,7 +42,7 @@ run "control_plane_split_dns" {
   }
 
   assert {
-    condition     = strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "DNS=100.100.100.100\n      Domains=~tilapia-turtle.ts.net ~ts.net")
+    condition     = strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "DNS=100.100.100.100\n      Domains=~example-tailnet.invalid ~ts.net")
     error_message = "Control-plane cloud-init must render the MagicDNS resolver and routed domains."
   }
 
@@ -84,7 +84,7 @@ run "worker_split_dns" {
     enable_tailscale_nodes            = true
     tailscale_auth_key                = "tskey-auth-test"
     enable_tailscale_split_dns        = true
-    tailscale_magic_dns_domain        = "tilapia-turtle.ts.net"
+    tailscale_magic_dns_domain        = "example-tailnet.invalid"
     tailscale_split_dns_extra_domains = ["~ts.net"]
   }
 
@@ -99,7 +99,7 @@ run "worker_split_dns" {
   }
 
   assert {
-    condition     = strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "DNS=100.100.100.100\n      Domains=~tilapia-turtle.ts.net ~ts.net")
+    condition     = strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "DNS=100.100.100.100\n      Domains=~example-tailnet.invalid ~ts.net")
     error_message = "Worker cloud-init must render the MagicDNS resolver and routed domains."
   }
 
