@@ -59,23 +59,29 @@ locals {
     for p in var.node_pools : "${var.cluster_name}-${p.name}" => templatefile(
       "${path.module}/modules/node-pool/templates/worker-init.yaml.tpl",
       {
-        rke2_version             = var.rke2_version
-        rke2_token               = random_password.rke2_token.result
-        control_plane_lb_ip      = local.control_plane_endpoint_ip
-        node_ip                  = null
-        has_labels               = length(p.labels) > 0
-        label_args               = join("\n", [for k, v in p.labels : "        - \"${k}=${v}\""])
-        has_taints               = length(p.taints) > 0
-        taint_args               = join("\n", [for t in p.taints : "        - \"${t.key}=${t.value}:${t.effect}\""])
-        longhorn_volume_size     = p.longhorn_volume_size
-        enable_tailscale         = var.enable_tailscale_nodes
-        tailscale_auth_key       = coalesce(var.tailscale_node_auth_key, "")
-        cluster_subnet_cidr      = var.cluster_subnet_cidr
-        private_network_gateway  = local.private_network_gateway
-        has_node_dns             = local.has_node_dns
-        node_dns_systemd_servers = local.node_dns_systemd_servers
-        node_dns_systemd_domains = local.node_dns_systemd_domains
-        node_dns_resolv_conf     = local.node_dns_resolv_conf_content
+        rke2_version                 = var.rke2_version
+        rke2_token                   = random_password.rke2_token.result
+        control_plane_lb_ip          = local.control_plane_endpoint_ip
+        node_ip                      = null
+        has_labels                   = length(p.labels) > 0
+        label_args                   = join("\n", [for k, v in p.labels : "        - \"${k}=${v}\""])
+        has_taints                   = length(p.taints) > 0
+        taint_args                   = join("\n", [for t in p.taints : "        - \"${t.key}=${t.value}:${t.effect}\""])
+        longhorn_volume_size         = p.longhorn_volume_size
+        enable_tailscale             = var.enable_tailscale_nodes
+        tailscale_auth_key           = coalesce(var.tailscale_node_auth_key, "")
+        cluster_subnet_cidr          = var.cluster_subnet_cidr
+        private_network_gateway      = local.private_network_gateway
+        has_node_dns                 = local.has_node_dns
+        node_dns_systemd_servers     = local.node_dns_systemd_servers
+        node_dns_systemd_domains     = local.node_dns_systemd_domains
+        node_dns_resolv_conf         = local.node_dns_resolv_conf_content
+        enable_tailscale_split_dns   = var.enable_tailscale_split_dns
+        tailscale_magic_dns_resolver = var.tailscale_magic_dns_resolver
+        tailscale_split_dns_domains = join(" ", concat(
+          var.tailscale_magic_dns_domain != null ? ["~${var.tailscale_magic_dns_domain}"] : [],
+          var.tailscale_split_dns_extra_domains,
+        ))
         # Placeholder hostname — an autoscaler would append a unique suffix per provisioned node.
         hostname = "${var.cluster_name}-${p.name}-autoscale"
       }

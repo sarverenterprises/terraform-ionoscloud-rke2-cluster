@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added opt-in Tailscale split DNS for RKE2 nodes. The node templates now keep
+  public DNS on systemd-resolved, route MagicDNS domains through tailscale0,
+  and make Tailscale DNS ownership explicit without changing existing defaults.
 - Moved direct NLB DNS annotations from the traffic-serving NodePort to a
   dedicated ClusterIP marker Service so ExternalDNS reliably publishes the
   DNS-only A record while the NodePort remains unchanged.

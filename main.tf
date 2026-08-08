@@ -73,17 +73,21 @@ module "control_plane" {
   first_node_static_ip = local.first_cp_private_ip
 
   # Cloud-init
-  rke2_version                 = var.rke2_version
-  rke2_token                   = random_password.rke2_token.result
-  control_plane_lb_ip          = local.control_plane_endpoint_ip
-  first_cp_ip                  = local.first_cp_private_ip
-  cluster_subnet_cidr          = var.cluster_subnet_cidr
-  private_network_gateway      = local.private_network_gateway
-  pod_cidr                     = var.pod_cidr
-  service_cidr                 = var.service_cidr
-  disabled_packaged_components = var.disabled_packaged_components
-  node_dns_servers             = var.node_dns_servers
-  node_dns_search_domains      = var.node_dns_search_domains
+  rke2_version                      = var.rke2_version
+  rke2_token                        = random_password.rke2_token.result
+  control_plane_lb_ip               = local.control_plane_endpoint_ip
+  first_cp_ip                       = local.first_cp_private_ip
+  cluster_subnet_cidr               = var.cluster_subnet_cidr
+  private_network_gateway           = local.private_network_gateway
+  pod_cidr                          = var.pod_cidr
+  service_cidr                      = var.service_cidr
+  disabled_packaged_components      = var.disabled_packaged_components
+  node_dns_servers                  = var.node_dns_servers
+  node_dns_search_domains           = var.node_dns_search_domains
+  enable_tailscale_split_dns        = var.enable_tailscale_split_dns
+  tailscale_magic_dns_domain        = var.tailscale_magic_dns_domain
+  tailscale_magic_dns_resolver      = var.tailscale_magic_dns_resolver
+  tailscale_split_dns_extra_domains = var.tailscale_split_dns_extra_domains
 
   # Security
   enable_tailscale_nodes = var.enable_tailscale_nodes
@@ -152,14 +156,18 @@ module "worker_pools" {
   )
 
   # Cloud-init
-  rke2_version            = var.rke2_version
-  rke2_token              = random_password.rke2_token.result
-  control_plane_lb_ip     = local.control_plane_endpoint_ip
-  first_cp_ip             = local.first_cp_private_ip
-  cluster_subnet_cidr     = var.cluster_subnet_cidr
-  private_network_gateway = local.private_network_gateway
-  node_dns_servers        = var.node_dns_servers
-  node_dns_search_domains = var.node_dns_search_domains
+  rke2_version                      = var.rke2_version
+  rke2_token                        = random_password.rke2_token.result
+  control_plane_lb_ip               = local.control_plane_endpoint_ip
+  first_cp_ip                       = local.first_cp_private_ip
+  cluster_subnet_cidr               = var.cluster_subnet_cidr
+  private_network_gateway           = local.private_network_gateway
+  node_dns_servers                  = var.node_dns_servers
+  node_dns_search_domains           = var.node_dns_search_domains
+  enable_tailscale_split_dns        = var.enable_tailscale_split_dns
+  tailscale_magic_dns_domain        = var.tailscale_magic_dns_domain
+  tailscale_magic_dns_resolver      = var.tailscale_magic_dns_resolver
+  tailscale_split_dns_extra_domains = var.tailscale_split_dns_extra_domains
 
   # Security
   enable_tailscale_nodes = var.enable_tailscale_nodes

@@ -10,6 +10,10 @@ locals {
   node_dns_resolv_conf_content = join("\n", local.node_dns_resolv_conf_lines)
   node_dns_systemd_servers     = join(" ", var.node_dns_servers)
   node_dns_systemd_domains     = length(var.node_dns_search_domains) > 0 ? join(" ", var.node_dns_search_domains) : "~."
+  tailscale_split_dns_domains = join(" ", concat(
+    var.tailscale_magic_dns_domain != null ? ["~${var.tailscale_magic_dns_domain}"] : [],
+    var.tailscale_split_dns_extra_domains,
+  ))
 
   taint_args = join("\n", [
     for t in var.taints : "        - \"${t.key}=${t.value}:${t.effect}\""
@@ -81,95 +85,104 @@ locals {
     for index in range(var.node_count) : (
       var.role == "server" && index == 0
       ? templatefile("${path.module}/templates/cp-init.yaml.tpl", {
-        rke2_version                = var.rke2_version
-        rke2_token                  = var.rke2_token
-        control_plane_lb_ip         = var.control_plane_lb_ip
-        node_ip                     = local.node_private_ips[index]
-        first_cp_ip                 = null
-        cluster_init                = true
-        has_labels                  = local.has_labels
-        label_args                  = local.label_args
-        has_taints                  = local.has_taints
-        taint_args                  = local.taint_args
-        longhorn_volume_size        = var.longhorn_volume_size
-        enable_tailscale            = var.enable_tailscale_nodes
-        tailscale_auth_key          = var.tailscale_auth_key != null ? var.tailscale_auth_key : ""
-        hostname                    = "${var.pool_name}-1"
-        pod_cidr                    = var.pod_cidr
-        service_cidr                = var.service_cidr
-        cluster_subnet_cidr         = var.cluster_subnet_cidr
-        private_network_gateway     = var.private_network_gateway
-        has_node_dns                = local.has_node_dns
-        node_dns_systemd_servers    = local.node_dns_systemd_servers
-        node_dns_systemd_domains    = local.node_dns_systemd_domains
-        node_dns_resolv_conf        = local.node_dns_resolv_conf_content
-        has_disabled_components     = local.has_disabled_components
-        disabled_component_args     = local.disabled_component_args
-        enable_etcd_backup          = var.enable_etcd_backup
-        etcd_snapshot_schedule_cron = var.etcd_snapshot_schedule_cron
-        etcd_snapshot_retention     = var.etcd_snapshot_retention
-        etcd_s3_endpoint            = var.etcd_s3_endpoint != null ? var.etcd_s3_endpoint : ""
-        etcd_s3_bucket              = var.etcd_s3_bucket != null ? var.etcd_s3_bucket : ""
-        etcd_s3_access_key          = var.etcd_s3_access_key != null ? var.etcd_s3_access_key : ""
-        etcd_s3_secret_key          = var.etcd_s3_secret_key != null ? var.etcd_s3_secret_key : ""
-        etcd_s3_region              = var.etcd_s3_region != null ? var.etcd_s3_region : ""
-        etcd_s3_folder              = var.etcd_s3_folder != null ? var.etcd_s3_folder : ""
+        rke2_version                 = var.rke2_version
+        rke2_token                   = var.rke2_token
+        control_plane_lb_ip          = var.control_plane_lb_ip
+        node_ip                      = local.node_private_ips[index]
+        first_cp_ip                  = null
+        cluster_init                 = true
+        has_labels                   = local.has_labels
+        label_args                   = local.label_args
+        has_taints                   = local.has_taints
+        taint_args                   = local.taint_args
+        longhorn_volume_size         = var.longhorn_volume_size
+        enable_tailscale             = var.enable_tailscale_nodes
+        tailscale_auth_key           = var.tailscale_auth_key != null ? var.tailscale_auth_key : ""
+        hostname                     = "${var.pool_name}-1"
+        pod_cidr                     = var.pod_cidr
+        service_cidr                 = var.service_cidr
+        cluster_subnet_cidr          = var.cluster_subnet_cidr
+        private_network_gateway      = var.private_network_gateway
+        has_node_dns                 = local.has_node_dns
+        node_dns_systemd_servers     = local.node_dns_systemd_servers
+        node_dns_systemd_domains     = local.node_dns_systemd_domains
+        node_dns_resolv_conf         = local.node_dns_resolv_conf_content
+        enable_tailscale_split_dns   = var.enable_tailscale_split_dns
+        tailscale_magic_dns_resolver = var.tailscale_magic_dns_resolver
+        tailscale_split_dns_domains  = local.tailscale_split_dns_domains
+        has_disabled_components      = local.has_disabled_components
+        disabled_component_args      = local.disabled_component_args
+        enable_etcd_backup           = var.enable_etcd_backup
+        etcd_snapshot_schedule_cron  = var.etcd_snapshot_schedule_cron
+        etcd_snapshot_retention      = var.etcd_snapshot_retention
+        etcd_s3_endpoint             = var.etcd_s3_endpoint != null ? var.etcd_s3_endpoint : ""
+        etcd_s3_bucket               = var.etcd_s3_bucket != null ? var.etcd_s3_bucket : ""
+        etcd_s3_access_key           = var.etcd_s3_access_key != null ? var.etcd_s3_access_key : ""
+        etcd_s3_secret_key           = var.etcd_s3_secret_key != null ? var.etcd_s3_secret_key : ""
+        etcd_s3_region               = var.etcd_s3_region != null ? var.etcd_s3_region : ""
+        etcd_s3_folder               = var.etcd_s3_folder != null ? var.etcd_s3_folder : ""
       })
       : var.role == "server"
       ? templatefile("${path.module}/templates/cp-init.yaml.tpl", {
-        rke2_version                = var.rke2_version
-        rke2_token                  = var.rke2_token
-        control_plane_lb_ip         = var.control_plane_lb_ip
-        node_ip                     = local.node_private_ips[index]
-        cluster_init                = false
-        first_cp_ip                 = var.first_cp_ip
-        has_labels                  = local.has_labels
-        label_args                  = local.label_args
-        has_taints                  = local.has_taints
-        taint_args                  = local.taint_args
-        longhorn_volume_size        = var.longhorn_volume_size
-        enable_tailscale            = var.enable_tailscale_nodes
-        tailscale_auth_key          = var.tailscale_auth_key != null ? var.tailscale_auth_key : ""
-        hostname                    = "${var.pool_name}-${index + 1}"
-        pod_cidr                    = var.pod_cidr
-        service_cidr                = var.service_cidr
-        cluster_subnet_cidr         = var.cluster_subnet_cidr
-        private_network_gateway     = var.private_network_gateway
-        has_node_dns                = local.has_node_dns
-        node_dns_systemd_servers    = local.node_dns_systemd_servers
-        node_dns_systemd_domains    = local.node_dns_systemd_domains
-        node_dns_resolv_conf        = local.node_dns_resolv_conf_content
-        has_disabled_components     = local.has_disabled_components
-        disabled_component_args     = local.disabled_component_args
-        enable_etcd_backup          = var.enable_etcd_backup
-        etcd_snapshot_schedule_cron = var.etcd_snapshot_schedule_cron
-        etcd_snapshot_retention     = var.etcd_snapshot_retention
-        etcd_s3_endpoint            = var.etcd_s3_endpoint != null ? var.etcd_s3_endpoint : ""
-        etcd_s3_bucket              = var.etcd_s3_bucket != null ? var.etcd_s3_bucket : ""
-        etcd_s3_access_key          = var.etcd_s3_access_key != null ? var.etcd_s3_access_key : ""
-        etcd_s3_secret_key          = var.etcd_s3_secret_key != null ? var.etcd_s3_secret_key : ""
-        etcd_s3_region              = var.etcd_s3_region != null ? var.etcd_s3_region : ""
-        etcd_s3_folder              = var.etcd_s3_folder != null ? var.etcd_s3_folder : ""
+        rke2_version                 = var.rke2_version
+        rke2_token                   = var.rke2_token
+        control_plane_lb_ip          = var.control_plane_lb_ip
+        node_ip                      = local.node_private_ips[index]
+        cluster_init                 = false
+        first_cp_ip                  = var.first_cp_ip
+        has_labels                   = local.has_labels
+        label_args                   = local.label_args
+        has_taints                   = local.has_taints
+        taint_args                   = local.taint_args
+        longhorn_volume_size         = var.longhorn_volume_size
+        enable_tailscale             = var.enable_tailscale_nodes
+        tailscale_auth_key           = var.tailscale_auth_key != null ? var.tailscale_auth_key : ""
+        hostname                     = "${var.pool_name}-${index + 1}"
+        pod_cidr                     = var.pod_cidr
+        service_cidr                 = var.service_cidr
+        cluster_subnet_cidr          = var.cluster_subnet_cidr
+        private_network_gateway      = var.private_network_gateway
+        has_node_dns                 = local.has_node_dns
+        node_dns_systemd_servers     = local.node_dns_systemd_servers
+        node_dns_systemd_domains     = local.node_dns_systemd_domains
+        node_dns_resolv_conf         = local.node_dns_resolv_conf_content
+        enable_tailscale_split_dns   = var.enable_tailscale_split_dns
+        tailscale_magic_dns_resolver = var.tailscale_magic_dns_resolver
+        tailscale_split_dns_domains  = local.tailscale_split_dns_domains
+        has_disabled_components      = local.has_disabled_components
+        disabled_component_args      = local.disabled_component_args
+        enable_etcd_backup           = var.enable_etcd_backup
+        etcd_snapshot_schedule_cron  = var.etcd_snapshot_schedule_cron
+        etcd_snapshot_retention      = var.etcd_snapshot_retention
+        etcd_s3_endpoint             = var.etcd_s3_endpoint != null ? var.etcd_s3_endpoint : ""
+        etcd_s3_bucket               = var.etcd_s3_bucket != null ? var.etcd_s3_bucket : ""
+        etcd_s3_access_key           = var.etcd_s3_access_key != null ? var.etcd_s3_access_key : ""
+        etcd_s3_secret_key           = var.etcd_s3_secret_key != null ? var.etcd_s3_secret_key : ""
+        etcd_s3_region               = var.etcd_s3_region != null ? var.etcd_s3_region : ""
+        etcd_s3_folder               = var.etcd_s3_folder != null ? var.etcd_s3_folder : ""
       })
       : templatefile("${path.module}/templates/worker-init.yaml.tpl", {
-        rke2_version             = var.rke2_version
-        rke2_token               = var.rke2_token
-        control_plane_lb_ip      = var.control_plane_lb_ip
-        node_ip                  = var.private_ip_offset != null ? local.node_private_ips[index] : null
-        cluster_subnet_cidr      = var.cluster_subnet_cidr
-        has_labels               = local.has_labels
-        label_args               = local.label_args
-        has_taints               = local.has_taints
-        taint_args               = local.taint_args
-        longhorn_volume_size     = var.longhorn_volume_size
-        enable_tailscale         = var.enable_tailscale_nodes
-        tailscale_auth_key       = var.tailscale_auth_key != null ? var.tailscale_auth_key : ""
-        hostname                 = "${var.pool_name}-${index + 1}"
-        private_network_gateway  = var.private_network_gateway
-        has_node_dns             = local.has_node_dns
-        node_dns_systemd_servers = local.node_dns_systemd_servers
-        node_dns_systemd_domains = local.node_dns_systemd_domains
-        node_dns_resolv_conf     = local.node_dns_resolv_conf_content
+        rke2_version                 = var.rke2_version
+        rke2_token                   = var.rke2_token
+        control_plane_lb_ip          = var.control_plane_lb_ip
+        node_ip                      = var.private_ip_offset != null ? local.node_private_ips[index] : null
+        cluster_subnet_cidr          = var.cluster_subnet_cidr
+        has_labels                   = local.has_labels
+        label_args                   = local.label_args
+        has_taints                   = local.has_taints
+        taint_args                   = local.taint_args
+        longhorn_volume_size         = var.longhorn_volume_size
+        enable_tailscale             = var.enable_tailscale_nodes
+        tailscale_auth_key           = var.tailscale_auth_key != null ? var.tailscale_auth_key : ""
+        hostname                     = "${var.pool_name}-${index + 1}"
+        private_network_gateway      = var.private_network_gateway
+        has_node_dns                 = local.has_node_dns
+        node_dns_systemd_servers     = local.node_dns_systemd_servers
+        node_dns_systemd_domains     = local.node_dns_systemd_domains
+        node_dns_resolv_conf         = local.node_dns_resolv_conf_content
+        enable_tailscale_split_dns   = var.enable_tailscale_split_dns
+        tailscale_magic_dns_resolver = var.tailscale_magic_dns_resolver
+        tailscale_split_dns_domains  = local.tailscale_split_dns_domains
       })
     )
   ]
@@ -181,6 +194,17 @@ data "ionoscloud_template" "selected" {
 
 resource "terraform_data" "bootstrap_revision" {
   input = var.bootstrap_revision
+
+  lifecycle {
+    precondition {
+      condition = !var.enable_tailscale_split_dns || (
+        var.enable_tailscale_nodes &&
+        var.tailscale_magic_dns_domain != null &&
+        length(var.node_dns_servers) > 0
+      )
+      error_message = "enable_tailscale_split_dns requires enable_tailscale_nodes, tailscale_magic_dns_domain, and at least one node_dns_servers entry."
+    }
+  }
 }
 
 resource "ionoscloud_cube_server" "nodes" {

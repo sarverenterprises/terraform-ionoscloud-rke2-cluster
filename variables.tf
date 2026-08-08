@@ -129,13 +129,52 @@ variable "node_dns_servers" {
 }
 
 variable "node_dns_search_domains" {
-  description = "Optional DNS search domains written into node /etc/resolv.conf. Empty keeps the static resolver file free of search domains."
+  description = "Optional DNS search domains configured through systemd-resolved. Empty configures the public resolvers as the default route."
   type        = list(string)
   default     = []
 
   validation {
     condition     = alltrue([for domain in var.node_dns_search_domains : can(regex("^[A-Za-z0-9_.-]+$", domain))])
     error_message = "node_dns_search_domains must contain only DNS search-domain characters."
+  }
+}
+
+variable "enable_tailscale_split_dns" {
+  description = "Use systemd-networkd to route tailnet DNS queries to MagicDNS while systemd-resolved keeps public DNS as the default route. Requires enable_tailscale_nodes and tailscale_magic_dns_domain."
+  type        = bool
+  default     = false
+}
+
+variable "tailscale_magic_dns_domain" {
+  description = "Tailnet MagicDNS domain, without the systemd-resolved route-only prefix. Required when enable_tailscale_split_dns is true."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.tailscale_magic_dns_domain == null || can(regex("^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$", var.tailscale_magic_dns_domain))
+    error_message = "tailscale_magic_dns_domain must be null or a valid DNS domain without a leading '~'."
+  }
+}
+
+variable "tailscale_magic_dns_resolver" {
+  description = "IPv4 resolver used only for Tailscale split-DNS routes."
+  type        = string
+  default     = "100.100.100.100"
+
+  validation {
+    condition     = can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}$", var.tailscale_magic_dns_resolver))
+    error_message = "tailscale_magic_dns_resolver must be an IPv4 address."
+  }
+}
+
+variable "tailscale_split_dns_extra_domains" {
+  description = "Additional systemd-resolved route-only domains for tailscale0. Each value must include the leading '~', for example '~ts.net'."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for domain in var.tailscale_split_dns_extra_domains : can(regex("^~[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$", domain))])
+    error_message = "tailscale_split_dns_extra_domains values must be route-only DNS domains with a leading '~'."
   }
 }
 

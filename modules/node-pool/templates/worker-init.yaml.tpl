@@ -27,11 +27,29 @@ write_files:
         systemctl restart systemd-resolved.service || true
       fi
 
+%{ if enable_tailscale_split_dns ~}
+      ln -sfn /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+%{ else ~}
       rm -f /etc/resolv.conf
       cat >/etc/resolv.conf <<'EOF'
       ${replace(node_dns_resolv_conf, "\n", "\n      ")}
       EOF
       chmod 0644 /etc/resolv.conf
+%{ endif ~}
+
+%{ endif ~}
+%{ if enable_tailscale_split_dns ~}
+  - path: /etc/systemd/network/90-tailscale0.network
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Match]
+      Name=tailscale0
+
+      [Network]
+      DNS=${tailscale_magic_dns_resolver}
+      Domains=${tailscale_split_dns_domains}
+      RequiredForOnline=no
 
 %{ endif ~}
   - path: /usr/local/sbin/rke2-longhorn-host-prereqs.sh
@@ -106,6 +124,9 @@ runcmd:
   # Install and configure Tailscale before private-network and RKE2 work. If
   # bootstrap stalls, the node remains reachable for diagnostics.
   - |
+%{ if enable_tailscale_split_dns ~}
+    systemctl reload systemd-networkd.service
+%{ endif ~}
     for attempt in 1 2 3 4 5; do
       if curl -fsSL https://tailscale.com/install.sh -o /tmp/install-tailscale.sh \
         && sh /tmp/install-tailscale.sh; then
@@ -121,6 +142,9 @@ runcmd:
     tailscale up \
       --auth-key="${tailscale_auth_key}" \
       --hostname="${hostname}" \
+%{ if enable_tailscale_split_dns ~}
+      --accept-dns=false \
+%{ endif ~}
       2>&1 | tee -a /var/log/tailscale-setup.log
     if ! tailscale status >/dev/null 2>&1; then
       echo "ERROR: Tailscale enrollment failed — node will not be reachable via tailnet" >&2

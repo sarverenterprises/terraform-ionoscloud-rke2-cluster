@@ -82,6 +82,19 @@ The module keeps the first control-plane private IP as the Kubernetes API and
 RKE2 supervisor endpoint. Management access should go through Tailscale routes
 or direct node Tailscale IPs.
 
+## Optional Tailscale Split DNS
+
+`enable_tailscale_split_dns` keeps public DNS on the configured
+`node_dns_servers` and routes only tailnet domains through MagicDNS. This mode
+requires `enable_tailscale_nodes = true`, at least one public node resolver, and
+`tailscale_magic_dns_domain` without a leading `~`. The MagicDNS resolver
+defaults to `100.100.100.100`. Add other systemd-resolved route-only domains,
+including their leading `~`, with `tailscale_split_dns_extra_domains`.
+
+In this mode, node bootstrap keeps `/etc/resolv.conf` linked to the
+systemd-resolved stub, disables Tailscale DNS ownership explicitly, and installs
+a matched `systemd-networkd` configuration for each `tailscale0` interface.
+
 ## Private Networking
 
 IONOS LAN CIDRs are provider-computed, but this module assigns deterministic
