@@ -38,7 +38,7 @@ write_files:
 %{ endif ~}
 
 %{ endif ~}
-%{ if enable_tailscale_split_dns ~}
+%{ if enable_tailscale ~}
   - path: /etc/systemd/network/90-tailscale0.network
     owner: root:root
     permissions: '0644'
@@ -46,10 +46,8 @@ write_files:
       [Match]
       Name=tailscale0
 
-      [Network]
-      DNS=${tailscale_magic_dns_resolver}
-      Domains=${tailscale_split_dns_domains}
-      RequiredForOnline=no
+      [Link]
+      Unmanaged=yes
 
 %{ endif ~}
   - path: /usr/local/sbin/rke2-longhorn-host-prereqs.sh
@@ -124,9 +122,6 @@ runcmd:
   # Install and configure Tailscale before private-network and RKE2 work. If
   # bootstrap stalls, the node remains reachable for diagnostics.
   - |
-%{ if enable_tailscale_split_dns ~}
-    systemctl reload systemd-networkd.service
-%{ endif ~}
     for attempt in 1 2 3 4 5; do
       if curl -fsSL https://tailscale.com/install.sh -o /tmp/install-tailscale.sh \
         && sh /tmp/install-tailscale.sh; then
@@ -139,6 +134,9 @@ runcmd:
       echo "FATAL: Tailscale install failed after 5 attempts" >&2
       exit 1
     fi
+    if systemctl is-active --quiet systemd-networkd; then
+      networkctl reload
+    fi
     tailscale up \
       --auth-key="${tailscale_auth_key}" \
       --hostname="${hostname}" \
@@ -146,6 +144,13 @@ runcmd:
       --accept-dns=false \
 %{ endif ~}
       2>&1 | tee -a /var/log/tailscale-setup.log
+%{ if enable_tailscale_split_dns ~}
+    if systemctl is-active --quiet systemd-resolved; then
+      resolvectl dns tailscale0 ${tailscale_magic_dns_resolver}
+      resolvectl domain tailscale0 ${tailscale_split_dns_domains}
+      resolvectl default-route tailscale0 no
+    fi
+%{ endif ~}
     if ! tailscale status >/dev/null 2>&1; then
       echo "ERROR: Tailscale enrollment failed — node will not be reachable via tailnet" >&2
     fi

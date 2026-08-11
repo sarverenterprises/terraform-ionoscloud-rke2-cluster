@@ -93,7 +93,9 @@ including their leading `~`, with `tailscale_split_dns_extra_domains`.
 
 In this mode, node bootstrap keeps `/etc/resolv.conf` linked to the
 systemd-resolved stub, disables Tailscale DNS ownership explicitly, and installs
-a matched `systemd-networkd` configuration for each `tailscale0` interface.
+per-link `systemd-resolved` configuration for each `tailscale0` interface.
+Tailscale-enabled nodes also mark `tailscale0` unmanaged by `systemd-networkd`
+so networkd does not reconfigure the interface.
 
 ## Private Networking
 
