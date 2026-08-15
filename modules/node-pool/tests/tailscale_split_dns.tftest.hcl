@@ -60,6 +60,21 @@ run "control_plane_split_dns" {
     condition     = !strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "cat >/etc/resolv.conf <<'EOF'")
     error_message = "Control-plane split-DNS mode must not replace /etc/resolv.conf with a static file."
   }
+
+  assert {
+    condition     = strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "apt-get install -y cryptsetup dmsetup nfs-common open-iscsi")
+    error_message = "Control-plane cloud-init must install all Longhorn host prerequisite packages."
+  }
+
+  assert {
+    condition     = strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "modprobe dm_crypt")
+    error_message = "Control-plane cloud-init must load dm_crypt."
+  }
+
+  assert {
+    condition     = strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "systemctl mask multipathd.service multipathd.socket")
+    error_message = "Control-plane cloud-init must prevent multipathd activation."
+  }
 }
 
 run "worker_split_dns" {
@@ -121,6 +136,21 @@ run "worker_split_dns" {
   assert {
     condition     = !strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "cat >/etc/resolv.conf <<'EOF'")
     error_message = "Worker split-DNS mode must not replace /etc/resolv.conf with a static file."
+  }
+
+  assert {
+    condition     = strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "apt-get install -y cryptsetup dmsetup nfs-common open-iscsi")
+    error_message = "Worker cloud-init must install all Longhorn host prerequisite packages."
+  }
+
+  assert {
+    condition     = strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "modprobe dm_crypt")
+    error_message = "Worker cloud-init must load dm_crypt."
+  }
+
+  assert {
+    condition     = strcontains(base64decode(nonsensitive(ionoscloud_cube_server.nodes[0].volume[0].user_data)), "systemctl mask multipathd.service multipathd.socket")
+    error_message = "Worker cloud-init must prevent multipathd activation."
   }
 }
 
