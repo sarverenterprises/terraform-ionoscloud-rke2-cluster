@@ -59,7 +59,7 @@ write_files:
 
       export DEBIAN_FRONTEND=noninteractive
       for attempt in 1 2 3 4 5; do
-        if apt-get update && apt-get install -y nfs-common open-iscsi; then
+        if apt-get update && apt-get install -y cryptsetup dmsetup nfs-common open-iscsi; then
           break
         fi
         if [ "$attempt" -eq 5 ]; then
@@ -70,20 +70,27 @@ write_files:
         sleep $((attempt * 10))
       done
 
-      modprobe iscsi_tcp 2>/dev/null || true
+      cat >/etc/modules-load.d/longhorn.conf <<'EOF'
+      iscsi_tcp
+      dm_crypt
+      EOF
+
+      modprobe iscsi_tcp
+      modprobe dm_crypt
       systemctl enable --now iscsid.service 2>/dev/null || true
 
-      # Longhorn volumes can appear as /dev/sd* devices; keep multipathd from
-      # claiming them if multipath-tools is present or later installed.
+      # This cluster does not use multipath storage. Longhorn reports a host
+      # warning whenever multipathd runs because it can claim Longhorn devices.
+      # Keep the blacklist as defense in depth, then prevent service or socket
+      # activation from starting multipathd again.
       cat >/etc/multipath.conf <<'EOF'
       blacklist {
           devnode "^sd[a-z0-9]+"
       }
       EOF
 
-      if systemctl list-unit-files multipathd.service >/dev/null 2>&1; then
-        systemctl restart multipathd.service 2>/dev/null || true
-      fi
+      systemctl disable --now multipathd.service multipathd.socket 2>/dev/null || true
+      systemctl mask multipathd.service multipathd.socket 2>/dev/null || true
 
   - path: /etc/rancher/rke2/config.yaml
     owner: root:root
