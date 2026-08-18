@@ -145,6 +145,12 @@ variable "longhorn_default_data_path" {
   default     = "/var/lib/longhorn"
 }
 
+variable "longhorn_storage_over_provisioning_percentage" {
+  description = "Percentage of schedulable Longhorn capacity permitted beyond physical capacity."
+  type        = number
+  default     = 110
+}
+
 variable "longhorn_rwx_mode" {
   description = "Longhorn RWX backend: 'builtin' or 'external'."
   type        = string

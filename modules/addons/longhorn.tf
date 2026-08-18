@@ -48,6 +48,9 @@ resource "helm_release" "longhorn" {
       defaultSettings = {
         defaultReplicaCount = var.longhorn_default_replicas
         defaultDataPath     = var.longhorn_default_data_path
+        # Keep expansion headroom configurable per cluster while retaining a
+        # conservative default for existing module consumers.
+        storageOverProvisioningPercentage = var.longhorn_storage_over_provisioning_percentage
       }
       persistence = {
         defaultClassReplicaCount = var.longhorn_default_replicas
