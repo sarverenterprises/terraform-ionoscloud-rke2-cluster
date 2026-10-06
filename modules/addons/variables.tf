@@ -427,6 +427,59 @@ variable "envoy_gateway_allowed_routes_from" {
   }
 }
 
+variable "envoy_gateway_escaped_slash_listener" {
+  description = <<-EOT
+    Optional dedicated plaintext HTTP listener on the default Gateway for a
+    single hostname-scoped set of routes. Exists so a ClientTrafficPolicy can be
+    attached to this listener ALONE. Null creates no extra listener (default).
+
+    The port MUST be distinct from every other listener port on the Gateway
+    (in particular from the `http` listener on port 80): Envoy Gateway rejects a
+    listener-scoped ClientTrafficPolicy when another non-TLS listener shares the
+    target's port. Use a high port to avoid reserved ranges — the Cloudflare
+    Tunnel already routes to the Envoy data-plane Service on port 80, so a
+    high port keeps the existing tunnel path untouched.
+  EOT
+  type = object({
+    name     = string
+    port     = number
+    hostname = string
+  })
+  default = null
+
+  validation {
+    # NOTE: use a ternary, not `var.x == null || …`. Inside a MODULE, Terraform
+    # evaluates BOTH branches of `||` and raises "Attempt to get attribute from
+    # null value" when the value is null — which would break every consumer's
+    # `terraform validate`. A ternary IS lazy and is the correct guard.
+    condition = (
+      var.envoy_gateway_escaped_slash_listener == null
+      ? true
+      : (var.envoy_gateway_escaped_slash_listener.name != "http" &&
+      var.envoy_gateway_escaped_slash_listener.name != "https-direct")
+    )
+    error_message = "envoy_gateway_escaped_slash_listener.name must not collide with an existing listener name (http, https-direct)."
+  }
+
+  validation {
+    condition = (
+      var.envoy_gateway_escaped_slash_listener == null
+      ? true
+      : !contains([80, 443], var.envoy_gateway_escaped_slash_listener.port)
+    )
+    error_message = "envoy_gateway_escaped_slash_listener.port must not reuse 80 (the `http` listener) or 443 (the `https-direct` listener); a listener-scoped ClientTrafficPolicy is rejected when another non-TLS listener shares its port."
+  }
+
+  validation {
+    condition = (
+      var.envoy_gateway_escaped_slash_listener == null
+      ? true
+      : can(regex("^[A-Za-z0-9.-]+$", var.envoy_gateway_escaped_slash_listener.hostname))
+    )
+    error_message = "envoy_gateway_escaped_slash_listener.hostname must be a valid hostname."
+  }
+}
+
 variable "envoy_gateway_controller_replicas" {
   description = "Number of Envoy Gateway controller replicas."
   type        = number

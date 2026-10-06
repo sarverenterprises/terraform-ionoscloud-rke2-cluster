@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Added `envoy_gateway_escaped_slash_listener` (optional): a second, distinct-port
+  plaintext HTTP listener on the default Gateway, hostname-scoped, so a
+  `ClientTrafficPolicy` (notably `path.escapedSlashesAction: KeepUnchanged`) can
+  be attached to that listener alone. Envoy Gateway rejects a listener-scoped
+  ClientTrafficPolicy when another non-TLS listener shares the port, so the new
+  listener requires a port distinct from `http` (80) and `https-direct` (443),
+  and no dedicated Kubernetes Service is needed (the Envoy data-plane Service
+  exposes every listener port automatically). Null (default) is a no-op.
+  The input's validations use a null-ternary (not `||`) so they do not break a
+  consumer's `terraform validate` when the value is null; a `Validate Terraform`
+  workflow (`terraform fmt -check` + `terraform validate` for the root and the
+  addons module) was added alongside, since the repository previously had no CI.
+
 - Added opt-in Tailscale split DNS for RKE2 nodes. The node templates now keep
   public DNS on systemd-resolved, route MagicDNS domains through tailscale0,
   and make Tailscale DNS ownership explicit without changing existing defaults.
