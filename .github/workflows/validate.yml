@@ -1,0 +1,40 @@
+name: Validate Terraform
+
+# This module previously had NO CI, so a change could be proposed with no checks
+# at all (observed: PR #12 carried no status). This workflow at minimum runs
+# `terraform fmt -check` and `terraform validate` for the root AND the addons
+# module, which is what catches the class of defect where a module variable
+# validation breaks a consumer's `terraform validate` on the default value.
+#
+# It deliberately does not run `terraform plan` (no cloud credentials in PR CI)
+# and does not touch any real infrastructure.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.11.4"
+
+      - name: Terraform fmt (root + addons)
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init + validate (root)
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: Terraform init + validate (addons module standalone)
+        working-directory: modules/addons
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
