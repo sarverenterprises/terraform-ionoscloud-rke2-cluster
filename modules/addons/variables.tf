@@ -448,9 +448,14 @@ variable "envoy_gateway_escaped_slash_listener" {
   default = null
 
   validation {
+    # NOTE: use a ternary, not `var.x == null || …`. Inside a MODULE, Terraform
+    # evaluates BOTH branches of `||` and raises "Attempt to get attribute from
+    # null value" when the value is null — which would break every consumer's
+    # `terraform validate`. A ternary IS lazy and is the correct guard.
     condition = (
-      var.envoy_gateway_escaped_slash_listener == null ||
-      (var.envoy_gateway_escaped_slash_listener.name != "http" &&
+      var.envoy_gateway_escaped_slash_listener == null
+      ? true
+      : (var.envoy_gateway_escaped_slash_listener.name != "http" &&
       var.envoy_gateway_escaped_slash_listener.name != "https-direct")
     )
     error_message = "envoy_gateway_escaped_slash_listener.name must not collide with an existing listener name (http, https-direct)."
@@ -458,16 +463,18 @@ variable "envoy_gateway_escaped_slash_listener" {
 
   validation {
     condition = (
-      var.envoy_gateway_escaped_slash_listener == null ||
-      !contains([80, 443], var.envoy_gateway_escaped_slash_listener.port)
+      var.envoy_gateway_escaped_slash_listener == null
+      ? true
+      : !contains([80, 443], var.envoy_gateway_escaped_slash_listener.port)
     )
     error_message = "envoy_gateway_escaped_slash_listener.port must not reuse 80 (the `http` listener) or 443 (the `https-direct` listener); a listener-scoped ClientTrafficPolicy is rejected when another non-TLS listener shares its port."
   }
 
   validation {
     condition = (
-      var.envoy_gateway_escaped_slash_listener == null ||
-      can(regex("^[A-Za-z0-9.-]+$", var.envoy_gateway_escaped_slash_listener.hostname))
+      var.envoy_gateway_escaped_slash_listener == null
+      ? true
+      : can(regex("^[A-Za-z0-9.-]+$", var.envoy_gateway_escaped_slash_listener.hostname))
     )
     error_message = "envoy_gateway_escaped_slash_listener.hostname must be a valid hostname."
   }
