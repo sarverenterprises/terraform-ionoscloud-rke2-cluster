@@ -11,6 +11,36 @@
 locals {
   envoy_gateway_cloudflare_target = "http://${var.envoy_gateway_service_name}.${var.envoy_gateway_namespace}.svc.cluster.local:80"
 
+  # Optional second PLAINTEXT listener for a bounded, hostname-scoped set of
+  # routes. Purpose-built so a ClientTrafficPolicy can be attached to it alone
+  # (e.g. escapedSlashesAction: KeepUnchanged for Matrix key-backup paths):
+  # ClientTrafficPolicy targets a Gateway/listener, and Envoy Gateway REJECTS a
+  # listener-scoped policy when another non-TLS listener shares the target's
+  # port (internal/gatewayapi/clienttrafficpolicy.go:validatePortOverlapForClientTrafficPolicy).
+  # The new listener therefore MUST use a distinct port — 80 is already taken by
+  # `http`, and reusing it would both collapse the two listeners into one Envoy
+  # filter chain and make the policy invalid.
+  #
+  # The listener is a raw HTTP listener (no TLS), so Cloudflare Tunnel can reach
+  # it with a plaintext service URL — the same trust model as the existing `http`
+  # listener — and it needs no Cloudflare change beyond the per-hostname ingress
+  # rule that already exists. No dedicated Kubernetes Service is required: the
+  # Envoy data-plane Service exposes every listener port automatically
+  # (internal/infrastructure/kubernetes/proxy/resource_provider.go derives a
+  # ServicePort per listener port), so the existing `envoy-gateway-public`
+  # Service picks up the new port after the controller reconciles.
+  escaped_slash_listeners = var.envoy_gateway_escaped_slash_listener == null ? [] : [{
+    name     = var.envoy_gateway_escaped_slash_listener.name
+    protocol = "HTTP"
+    port     = var.envoy_gateway_escaped_slash_listener.port
+    hostname = var.envoy_gateway_escaped_slash_listener.hostname
+    allowedRoutes = {
+      namespaces = {
+        from = var.envoy_gateway_allowed_routes_from
+      }
+    }
+  }]
+
   envoy_gateway_external_dns_annotations = (
     var.enable_cloudflare_tunnel && length(var.envoy_gateway_hostnames) > 0
     ? {
@@ -143,21 +173,24 @@ locals {
       }
       spec = {
         gatewayClassName = var.envoy_gateway_class_name
-        listeners = concat([
-          merge(
-            {
-              name     = "http"
-              protocol = "HTTP"
-              port     = 80
-              allowedRoutes = {
-                namespaces = {
-                  from = var.envoy_gateway_allowed_routes_from
+        listeners = concat(
+          concat([
+            merge(
+              {
+                name     = "http"
+                protocol = "HTTP"
+                port     = 80
+                allowedRoutes = {
+                  namespaces = {
+                    from = var.envoy_gateway_allowed_routes_from
+                  }
                 }
-              }
-            },
-            var.envoy_gateway_listener_hostname != null ? { hostname = var.envoy_gateway_listener_hostname } : {}
-          )
-          ], var.enable_direct_envoy_nlb ? [{
+              },
+              var.envoy_gateway_listener_hostname != null ? { hostname = var.envoy_gateway_listener_hostname } : {}
+            )
+            ], local.escaped_slash_listeners
+          ),
+          var.enable_direct_envoy_nlb ? [{
             name     = "https-direct"
             protocol = "HTTPS"
             port     = 443
